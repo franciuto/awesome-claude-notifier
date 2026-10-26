@@ -1,8 +1,10 @@
+<p align="center">
+  <img src="assets/banner.png" alt="Claude Code Notification Helper" width="720">
+</p>
+
 # awesome-claude-notifier
 
-Native macOS notifications for [Claude Code](https://code.claude.com) hooks. Each notification tells you which session it is about and what happened, plays a sound picked for that kind of event, and lets you act on it without going back to the terminal: approve a tool, or reply to Claude from the notification itself.
-
-This is a fork of [jamez01/claude-notify](https://github.com/jamez01/claude-notify) (MIT). The cross-platform `send`, `watch` and `config` commands from the original still work; the changes below are about the `hook` command on macOS.
+Claude Code works for minutes at a time, and you probably don't sit and watch it. This sends you a macOS notification when something happens: which session it was, what happened, and a sound you learn to recognize. When Claude asks to run a tool or finishes a task, you can answer from the notification itself.
 
 ## What a notification looks like
 
@@ -11,45 +13,34 @@ Refactor auth module · Done
 I moved the token check into the middleware and added two tests for expired tokens.
 ```
 
-- **Title**: the session name as Claude shows it (a name you gave with `/rename` or in the desktop app sidebar, else the auto-generated title), then the event group.
-- **Body**: about two lines on what happened. For `Stop` it is the start of Claude's last message, with Markdown stripped.
+The first line is the session name, the one Claude shows in its session list, followed by what happened. The second line is the start of Claude's answer, so most of the time you know whether to go back to the terminal without opening it.
 
-## Event groups
+Every event falls into one of six groups, and each group has its own sound:
 
-Every hook event falls into one group. The group sets the title suffix and the sound.
+| Group | When |
+|---|---|
+| Needs you | Claude wants permission or is waiting for an answer |
+| Done | Claude finished |
+| Paused | Claude finished, but something is still running in the background |
+| Error | The turn failed, or auto mode blocked an action |
+| Limit | You hit a usage limit, or it reset |
+| Info | Anything else, like signing in |
 
-| Group | Fires on | Sound file |
-|---|---|---|
-| Needs you | `PermissionRequest`, `permission_prompt`, `idle_prompt`, MCP elicitation, a background agent waiting, usage limit reset waiting for Enter | `claude-notify-needs-you.aiff` |
-| Done | `Stop`, `SubagentStop`, `TaskCompleted`, `agent_completed` | `claude-notify-done.aiff` |
-| Paused | `Stop` while background tasks are still running | `claude-notify-paused.aiff` |
-| Error | `StopFailure` (rate limit, overload, auth, ...), `PermissionDenied` from auto mode | `claude-notify-error.aiff` |
-| Limit | usage limit auto-resume fired or gave up | `claude-notify-limit.aiff` |
-| Info | sign-in and anything else | `claude-notify-info.aiff` |
+Open `sounds/player.html` in a browser to hear them.
 
-## Interactive notifications (CLI sessions)
+## Answering from the notification
 
-- **Allow / Deny**: on `PermissionRequest` the notification has Allow and Deny buttons. Your choice goes back to Claude Code as the hook's `decision`. If you don't answer within 20 seconds the notification is withdrawn and the normal terminal dialog appears. When your terminal is the frontmost app the notification is skipped, so the dialog shows right away.
-- **Reply**: on `Stop` the notification has a Reply field. The hook runs in the background with `asyncRewake`, so the terminal stays free. If you send a reply, the hook exits with code 2 and Claude Code wakes the session with your text. Typing a prompt in the terminal withdraws the pending Reply.
+Two notifications have controls.
 
-Claude receives a reply as a system reminder that says it came from you, not as a regular user turn.
+When Claude asks to use a tool, the notification shows **Allow** and **Deny**. If you don't answer within 20 seconds it goes away and the usual prompt appears in the terminal. If the terminal is already the app in front, you get the prompt straight away and no notification.
 
-In the Claude desktop app (`CLAUDE_CODE_ENTRYPOINT=claude-desktop`) the hooks send plain notifications only, since the app has its own UI for permissions and replies.
+When Claude finishes, the notification has a **Reply** field. What you type goes to that session and Claude picks it up immediately. If you go back and type in the terminal instead, the notification is withdrawn.
 
-Claude Code [channels](https://code.claude.com/docs/en/channels) are the official way to relay permission prompts and messages, and they don't delay the terminal dialog. They need a Pro/Max account or an organization that enabled them; this project works with hooks alone.
+Both only work in terminal sessions. The Claude desktop app has its own buttons for this, so there you get plain notifications.
 
-## How it works on macOS
+## Install
 
-Notifications come from a small AppKit helper app, `Claude Notify.app`, built from `macos-helper/`. Using an app bundle is what gives the notification its own icon (instead of Script Editor's, as with `osascript`) and lets it carry buttons and a text field.
-
-- Plain notifications run the helper's binary directly.
-- Interactive ones launch it through LaunchServices (`open -n -W -a`), because macOS only routes a click or a typed reply to an instance it registered as the app. The helper writes the answer to `~/Library/Caches/claude-notify/responses/<id>.json`, where the hook picks it up.
-
-If the helper is missing, plain notifications fall back to `osascript` (with the text escaped for AppleScript).
-
-## Setup
-
-Requirements: macOS 13 or later, Xcode command line tools (`swiftc`), Python 3.8+.
+You need macOS 13 or later, Python 3.8 or later, and the Xcode command line tools.
 
 1. Install the Python package:
 
@@ -57,43 +48,34 @@ Requirements: macOS 13 or later, Xcode command line tools (`swiftc`), Python 3.8
    pip install .
    ```
 
-2. Build the helper app into `~/Applications`:
+2. Build the small app that shows the notifications. It goes into `~/Applications/Claude Notify.app`:
 
    ```bash
    ./macos-helper/build.sh
    ```
 
-   The first notification asks for permission. To keep notifications with buttons on screen until you answer, set the style of **Claude Notify** to *Alerts* in System Settings → Notifications.
+   Allow notifications when macOS asks. In System Settings → Notifications → Claude Notify, set the style to **Alerts**, so notifications with buttons stay on screen until you answer.
 
-3. Install the sounds into `~/Library/Sounds`:
+3. Install the sounds:
 
    ```bash
    ./sounds/install.sh
    ```
 
-   Open `sounds/player.html` to listen to them.
+4. Copy the hooks from [`examples/claude-settings.json`](examples/claude-settings.json) into `~/.claude/settings.json`. If `claude-notify` isn't on your `PATH`, write its full path, for example `~/.venv/bin/claude-notify`.
 
-4. Add the hooks from [`examples/claude-settings.json`](examples/claude-settings.json) to `~/.claude/settings.json`. Use the full path to `claude-notify` if it isn't on the `PATH` that Claude Code sees, for example `~/.venv/bin/claude-notify`.
+Start a new `claude` session and you're set.
 
-   The example also sets `preferredNotifChannel` to `notifications_disabled`, so Claude Code's built-in terminal notifications don't duplicate these.
+## Make it yours
 
-## Customizing
+To change a sound, edit its description in `sounds/generate.sh` and run the script with the group name, for example `./sounds/generate.sh error`. It uses the [ElevenLabs](https://elevenlabs.io) sound effects API, so you need their CLI logged in.
 
-- **Sounds**: `sounds/generate.sh [group ...]` regenerates sounds with the [ElevenLabs](https://elevenlabs.io) sound effects API (needs an authenticated `elevenlabs` CLI) and installs them. Edit the prompts in the script to change the style.
-- **Icon**: `python assets/icon/make_app_icon.py <square-image> assets/icon/app-icon.png` fits any square image into the macOS icon grid; then rerun `build.sh`. If macOS keeps showing the old icon, its icon cache is keyed by bundle id: change `CFBundleIdentifier` in `macos-helper/Info.plist` and rebuild.
-- **Texts**: groups, notification texts and the reply wording live at the top of `claude_notify/hook_handler.py`.
+To change the icon, run `python assets/icon/make_app_icon.py your-image.png assets/icon/app-icon.png` with any square image, then build the app again.
 
-## Hook command reference
+The notification texts are at the top of `claude_notify/hook_handler.py`.
 
-```
-claude-notify hook [--event-type EVENT] [--reply-wait SECONDS]
-```
+For how the pieces fit together, see [docs/how-it-works.md](docs/how-it-works.md).
 
-- `--event-type`: the hook event. Defaults to `hook_event_name` from the JSON on stdin.
-- `--reply-wait`: for `Stop` and `Notification`, offer Reply and wait up to this many seconds. Use it only on a hook with `asyncRewake: true`.
+## Credits
 
-`PermissionRequest` prints the decision JSON when you answer; `UserPromptSubmit` only withdraws a pending Reply and shows nothing.
-
-## License
-
-MIT, see [LICENSE](LICENSE). Original work by jamez01.
+Built on [claude-notify](https://github.com/jamez01/claude-notify) by jamez01, under the MIT license.

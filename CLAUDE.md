@@ -1,120 +1,48 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+macOS notifications for Claude Code hooks. Python package `claude_notify` (the `claude-notify hook` command) plus a Swift helper app that posts the notifications. Read `docs/how-it-works.md` before changing the hook flow.
 
-## Project Overview
-Claude-notify is a cross-platform notification system that integrates with Claude Code hooks to alert users when Claude needs their attention or performs certain actions. It can be used both as a Claude hook and as a standalone notification tool.
+## Map
 
-## Development Approach
-This project follows the SPARC (Specification, Pseudocode, Architecture, Refinement, Completion) methodology as configured in the global CLAUDE.md settings.
+| Path | What it is |
+|---|---|
+| `claude_notify/hook_handler.py` | Session name, event → group/text/sound, Allow/Deny, Reply |
+| `claude_notify/notifier.py` | Posts notifications; `ask()` runs an interactive one and waits |
+| `claude_notify/cli.py` | `hook` command: dispatch per event, exit codes |
+| `macos-helper/` | `Claude Notify.app` source; `build.sh` installs it to `~/Applications` |
+| `sounds/` | MP3 per group, `install.sh` → `~/Library/Sounds`, `generate.sh` (ElevenLabs) |
+| `assets/` | Banner, app icon, `make_app_icon.py` |
+| `examples/claude-settings.json` | The hooks users copy into `~/.claude/settings.json` |
 
-## Project Status
-- **Current State**: Initial setup phase - no implementation yet
-- **Goal**: Create a multi-OS script for Claude attention notifications
+`send`, `watch` and `config` are from the original project and are not part of the macOS work.
 
-## Implementation Notes
-When implementing this project, consider:
-1. Cross-platform compatibility (Windows, macOS, Linux)
-2. Different notification mechanisms per OS:
-   - macOS: `osascript` or terminal-notifier
-   - Linux: `notify-send` or similar
-   - Windows: PowerShell notifications or toast notifications
-3. Trigger mechanisms for when Claude needs attention
-4. Configuration options for notification preferences
+## Commands
 
-## Suggested Technology Stack
-Based on the cross-platform requirement, consider:
-- **Python**: Good cross-platform support with libraries like `plyer` for notifications
-- **Node.js**: Cross-platform with packages like `node-notifier`
-- **Shell scripts**: Platform-specific implementations with a wrapper script
-
-## SPARC Workflow for This Project
-Use the following SPARC commands to develop this project:
-
-1. **Specification Phase**: 
-   ```bash
-   npx claude-flow sparc run spec-pseudocode "Define notification requirements for Claude attention events"
-   ```
-
-2. **Architecture Phase**:
-   ```bash
-   npx claude-flow sparc run architect "Design cross-platform notification architecture"
-   ```
-
-3. **Implementation Phase**:
-   ```bash
-   npx claude-flow sparc tdd "implement notification system"
-   ```
-
-## Development Commands
-
-### Installation
 ```bash
-# Install in development mode
-pip install -e .
-
-# Install dependencies only
-pip install -r requirements.txt
+pip install .                       # reinstall after any Python change
+./macos-helper/build.sh             # rebuild + install the helper app
+swiftc -typecheck macos-helper/main.swift
+./sounds/install.sh                 # install sounds
+echo '{"hook_event_name":"Stop","session_id":"t","cwd":"/tmp/demo","last_assistant_message":"Test."}' \
+  | claude-notify hook              # send a real test notification
 ```
 
-### Testing the Notification System
-```bash
-# Check system dependencies
-claude-notify check
+For logic changes, test `HookHandler` with a fake notifier object (`send_notification`, `ask`) instead of posting real notifications.
 
-# Send a test notification
-claude-notify send --title "Test" --message "Testing claude-notify"
+## Contracts that must hold
 
-# Test watch mode functionality
-python examples/test-watch-mode.py
+- `PermissionRequest`: print decision JSON only when the user answered. No output means Claude Code shows its own prompt.
+- `Stop` with `--reply-wait`: exit 2 with the reply on stderr wakes the session; exit 0 otherwise. Only valid under `asyncRewake: true`.
+- Exit code 2 is reserved for Reply. Any other failure must exit 0 or 1, which Claude Code treats as non-blocking.
+- In the desktop app (`CLAUDE_CODE_ENTRYPOINT=claude-desktop`) only plain notifications, no buttons and no waiting.
+- One pending Reply per session, tracked in `~/Library/Caches/claude-notify/waiters/<session_id>.pid`.
 
-# Run the example script
-python examples/example_usage.py
+## Common mistakes
 
-# Test real-time monitoring (in separate terminal)
-claude-notify watch --verbose
-```
-
-### CLI Commands
-- `claude-notify send`: Send a notification immediately
-- `claude-notify watch`: Monitor Claude sessions for activity requiring attention
-- `claude-notify hook`: Process Claude Code hook events (reads JSON from stdin)
-- `claude-notify check`: Check system dependencies
-- `claude-notify config show`: Display current configuration
-- `claude-notify config set <key> <value>`: Update configuration
-- `claude-notify config reset`: Reset to default configuration
-
-### Watch Mode Features
-- **Real-time monitoring**: Checks transcript files for changes every 30 seconds (configurable)
-- **Smart pattern detection**: Identifies when Claude is waiting for input, asking questions, or encountering errors
-- **Project-aware**: Shows which specific project needs attention
-- **One-time notifications**: Won't spam you with repeated alerts for the same session
-- **Multi-project support**: Can monitor all Claude projects or just the current directory
-
-### Claude Hook Integration
-The application is designed to work as a Claude Code hook. Key features:
-- Reads hook JSON data from stdin
-- Automatically determines event type from JSON structure
-- Sends appropriate notifications based on event type
-- Special handling for critical tools (Bash, Write, Edit, MultiEdit)
-- Non-blocking operation to avoid interrupting Claude's workflow
-- **Project identification**: All notifications include project name in title and full path in message
-
-### Project Structure
-```
-claude-notify/
-├── claude_notify/
-│   ├── __init__.py          # Package initialization
-│   ├── notifier.py          # Cross-platform notification logic
-│   ├── cli.py               # Command-line interface with hook support
-│   ├── config.py            # Configuration management
-│   └── hook_handler.py      # Claude hook event processing
-├── examples/
-│   ├── example_usage.py     # Example usage script
-│   ├── claude-settings.json # Example Claude hook configuration
-│   ├── test-hook-data.json  # Test data for hook functionality
-│   └── test-hook.sh         # Test script for hook integration
-├── requirements.txt         # Python dependencies
-├── setup.py                 # Package setup configuration
-└── README.md               # User documentation with hook setup
-```
+| Mistake | Result | Do instead |
+|---|---|---|
+| Running the helper binary directly for an interactive notification | Click or reply never arrives, notification hangs | `open -n -W -a "Claude Notify.app" --args ...` (see `notifier.ask`) |
+| Changing the icon and only rebuilding | macOS keeps the old cached icon | `build.sh` bumps the build number; if that fails, change `CFBundleIdentifier` |
+| Killing a pid from a stale pid file | Can signal an unrelated process | Check the command line contains `claude-notify` first (see `cancel_reply_wait`) |
+| Interpolating text into AppleScript | Quotes break out of the string | Escape `\` and `"` (see `_send_macos_notification`) |
+| Adding a group without a sound | Default macOS sound plays | Add it to `GROUP_SOUNDS`, `sounds/mp3/`, both scripts and `player.html` |
