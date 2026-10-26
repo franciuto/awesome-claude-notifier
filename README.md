@@ -1,242 +1,99 @@
-# Claude-notify
+# awesome-claude-notifier
 
-A simple, cross-platform notification system to alert you when Claude needs your attention.
+Native macOS notifications for [Claude Code](https://code.claude.com) hooks. Each notification tells you which session it is about and what happened, plays a sound picked for that kind of event, and lets you act on it without going back to the terminal: approve a tool, or reply to Claude from the notification itself.
 
-## Features
+This is a fork of [jamez01/claude-notify](https://github.com/jamez01/claude-notify) (MIT). The cross-platform `send`, `watch` and `config` commands from the original still work; the changes below are about the `hook` command on macOS.
 
-- 🖥️ **Cross-platform support**: Works on macOS, Linux, and Windows
-- 🔔 **Native notifications**: Uses system-native notification methods when available
-- 🪝 **Claude Code hooks**: Integrates seamlessly with Claude's hook system
-- ⚙️ **Configurable**: Customize notification preferences
-- 🎯 **Simple CLI**: Easy-to-use command-line interface
-- 🔄 **Watch mode**: Continuous monitoring with periodic notifications
-- 🚨 **Smart alerts**: Critical notifications for potentially destructive operations
-- 📁 **Project identification**: All notifications include project name and path
+## What a notification looks like
 
-## Installation
-
-### From Source
-
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/claude-notify.git
-cd claude-notify
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Install the package
-pip install -e .
+```
+Refactor auth module · Done
+I moved the token check into the middleware and added two tests for expired tokens.
 ```
 
-### Using pip (when published)
+- **Title**: the session name as Claude shows it (a name you gave with `/rename` or in the desktop app sidebar, else the auto-generated title), then the event group.
+- **Body**: about two lines on what happened. For `Stop` it is the start of Claude's last message, with Markdown stripped.
 
-```bash
-pip install claude-notify
+## Event groups
+
+Every hook event falls into one group. The group sets the title suffix and the sound.
+
+| Group | Fires on | Sound file |
+|---|---|---|
+| Needs you | `PermissionRequest`, `permission_prompt`, `idle_prompt`, MCP elicitation, a background agent waiting, usage limit reset waiting for Enter | `claude-notify-needs-you.aiff` |
+| Done | `Stop`, `SubagentStop`, `TaskCompleted`, `agent_completed` | `claude-notify-done.aiff` |
+| Paused | `Stop` while background tasks are still running | `claude-notify-paused.aiff` |
+| Error | `StopFailure` (rate limit, overload, auth, ...), `PermissionDenied` from auto mode | `claude-notify-error.aiff` |
+| Limit | usage limit auto-resume fired or gave up | `claude-notify-limit.aiff` |
+| Info | sign-in and anything else | `claude-notify-info.aiff` |
+
+## Interactive notifications (CLI sessions)
+
+- **Allow / Deny**: on `PermissionRequest` the notification has Allow and Deny buttons. Your choice goes back to Claude Code as the hook's `decision`. If you don't answer within 20 seconds the notification is withdrawn and the normal terminal dialog appears. When your terminal is the frontmost app the notification is skipped, so the dialog shows right away.
+- **Reply**: on `Stop` the notification has a Reply field. The hook runs in the background with `asyncRewake`, so the terminal stays free. If you send a reply, the hook exits with code 2 and Claude Code wakes the session with your text. Typing a prompt in the terminal withdraws the pending Reply.
+
+Claude receives a reply as a system reminder that says it came from you, not as a regular user turn.
+
+In the Claude desktop app (`CLAUDE_CODE_ENTRYPOINT=claude-desktop`) the hooks send plain notifications only, since the app has its own UI for permissions and replies.
+
+Claude Code [channels](https://code.claude.com/docs/en/channels) are the official way to relay permission prompts and messages, and they don't delay the terminal dialog. They need a Pro/Max account or an organization that enabled them; this project works with hooks alone.
+
+## How it works on macOS
+
+Notifications come from a small AppKit helper app, `Claude Notify.app`, built from `macos-helper/`. Using an app bundle is what gives the notification its own icon (instead of Script Editor's, as with `osascript`) and lets it carry buttons and a text field.
+
+- Plain notifications run the helper's binary directly.
+- Interactive ones launch it through LaunchServices (`open -n -W -a`), because macOS only routes a click or a typed reply to an instance it registered as the app. The helper writes the answer to `~/Library/Caches/claude-notify/responses/<id>.json`, where the hook picks it up.
+
+If the helper is missing, plain notifications fall back to `osascript` (with the text escaped for AppleScript).
+
+## Setup
+
+Requirements: macOS 13 or later, Xcode command line tools (`swiftc`), Python 3.8+.
+
+1. Install the Python package:
+
+   ```bash
+   pip install .
+   ```
+
+2. Build the helper app into `~/Applications`:
+
+   ```bash
+   ./macos-helper/build.sh
+   ```
+
+   The first notification asks for permission. To keep notifications with buttons on screen until you answer, set the style of **Claude Notify** to *Alerts* in System Settings → Notifications.
+
+3. Install the sounds into `~/Library/Sounds`:
+
+   ```bash
+   ./sounds/install.sh
+   ```
+
+   Open `sounds/player.html` to listen to them.
+
+4. Add the hooks from [`examples/claude-settings.json`](examples/claude-settings.json) to `~/.claude/settings.json`. Use the full path to `claude-notify` if it isn't on the `PATH` that Claude Code sees, for example `~/.venv/bin/claude-notify`.
+
+   The example also sets `preferredNotifChannel` to `notifications_disabled`, so Claude Code's built-in terminal notifications don't duplicate these.
+
+## Customizing
+
+- **Sounds**: `sounds/generate.sh [group ...]` regenerates sounds with the [ElevenLabs](https://elevenlabs.io) sound effects API (needs an authenticated `elevenlabs` CLI) and installs them. Edit the prompts in the script to change the style.
+- **Icon**: `python assets/icon/make_app_icon.py <square-image> assets/icon/app-icon.png` fits any square image into the macOS icon grid; then rerun `build.sh`. If macOS keeps showing the old icon, its icon cache is keyed by bundle id: change `CFBundleIdentifier` in `macos-helper/Info.plist` and rebuild.
+- **Texts**: groups, notification texts and the reply wording live at the top of `claude_notify/hook_handler.py`.
+
+## Hook command reference
+
+```
+claude-notify hook [--event-type EVENT] [--reply-wait SECONDS]
 ```
 
-## Usage
+- `--event-type`: the hook event. Defaults to `hook_event_name` from the JSON on stdin.
+- `--reply-wait`: for `Stop` and `Notification`, offer Reply and wait up to this many seconds. Use it only on a hook with `asyncRewake: true`.
 
-### Claude Code Hook Integration (Recommended)
-
-Claude-notify can be integrated directly with Claude Code as a hook to notify you when Claude needs attention or performs certain actions.
-
-#### Setting up as a Claude Hook
-
-You can configure claude-notify as a hook in two ways:
-
-**Option 1: Using Claude's `/hooks` command** (Recommended)
-```bash
-# In Claude Code, simply run:
-/hooks
-# This will automatically add claude-notify hooks for Notification and Stop events
-```
-
-**Option 2: Manual configuration**
-
-Add to your Claude settings file (`~/.claude/settings.json` or `.claude/settings.json` in your project):
-
-```json
-{
-  "hooks": {
-    "Notification": [
-      {
-        "matcher": ".*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "claude-notify hook"
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "matcher": ".*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "claude-notify hook"
-          }
-        ]
-      }
-    ],
-    "PreToolUse": [
-      {
-        "matcher": "(Bash|Write|Edit|MultiEdit)",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "claude-notify hook"
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-This configuration will:
-- Notify you when Claude finishes responding (Stop event)
-- Alert you before Claude uses potentially destructive tools (Bash, Write, Edit, MultiEdit)
-- Show the project name in ALL notification titles and full project path in ALL messages
-
-#### Available Hook Events
-
-- **PreToolUse**: Before Claude uses a tool (can be used to review/block actions)
-- **PostToolUse**: After a tool completes successfully
-- **Notification**: When Claude sends a notification
-- **Stop**: When Claude finishes responding
-- **SubagentStop**: When a Claude subagent completes
-
-#### Testing Hook Integration
-
-```bash
-# Test hook with sample data (includes project path extraction)
-claude-notify hook --test  # Reads from test.json
-
-# Test project path extraction
-python examples/test-project-path.py
-
-# Test with specific event type
-echo '{"tool_name": "Bash", "tool_input": {"command": "ls"}}' | claude-notify hook --event-type PreToolUse
-
-# Hook command options:
-# --event-type, -e: Override event type detection
-# --test, -t: Read from test.json instead of stdin
-```
-
-#### Project Path Display
-
-For ALL hook events, claude-notify automatically extracts and displays:
-- **Project name** in the notification title (e.g., "Claude Tool Request - my-project", "Claude Response Complete - my-project")
-- **Full project path** in the notification message (e.g., "Project: my-project (/home/user/projects/my-project)")
-
-This helps you identify which Claude session/project needs your attention when working on multiple projects, regardless of the event type.
-
-### Manual Usage
-
-#### Send a notification
-
-```bash
-# Basic notification
-claude-notify send
-
-# Custom notification
-claude-notify send --title "Custom Title" --message "Custom message" --urgency critical
-
-# Without sound
-claude-notify send --no-sound
-```
-
-#### Watch mode
-
-Monitor Claude sessions for activity that requires your attention:
-
-```bash
-# Monitor current project (checks every 30 seconds)
-claude-notify watch
-
-# Monitor all Claude projects
-claude-notify watch --all-projects
-
-# Custom check interval with verbose output
-claude-notify watch --interval 10 --verbose
-
-# Monitor specific project
-cd /path/to/project && claude-notify watch
-```
-
-Watch mode features:
-- **Real-time monitoring** of Claude transcript files
-- **Smart detection** of when Claude needs your input
-- **Project-aware** notifications showing which project needs attention
-- **Pattern matching** for questions, waiting states, and errors
-- **One-time notifications** per session (won't spam you)
-
-### Configuration
-
-```bash
-# Show current configuration
-claude-notify config show
-
-# Set configuration values
-claude-notify config set timeout 15
-claude-notify config set sound false
-claude-notify config set urgency critical
-
-# Reset to defaults
-claude-notify config reset
-```
-
-### System check
-
-Check if your system is properly configured:
-
-```bash
-claude-notify check
-```
-
-## Configuration Options
-
-Configuration is stored in:
-- Linux/macOS: `~/.config/claude-notify/config.yaml`
-- Windows: `%APPDATA%\claude-notify\config.yaml`
-
-Available options:
-- `timeout`: Notification display duration in seconds (default: 10)
-- `sound`: Play notification sound (default: true)
-- `urgency`: Notification urgency level - low, normal, critical (default: normal)
-- `interval`: Watch mode check interval in seconds (default: 300)
-- `title`: Default notification title
-- `message`: Default notification message
-
-## Platform-specific Notes
-
-### macOS
-- Uses native `osascript` for notifications
-- Sound support included
-
-### Linux
-- Requires `notify-send` (usually part of `libnotify-bin` package)
-- Install with: `sudo apt-get install libnotify-bin` (Debian/Ubuntu)
-- Falls back to Python plyer if notify-send is not available
-
-### Windows
-- Uses PowerShell for native Windows 10+ toast notifications
-- Falls back to Python plyer if PowerShell method fails
-
-## Development
-
-```bash
-# Install in development mode
-pip install -e .
-
-# Run tests (when implemented)
-python -m pytest
-```
+`PermissionRequest` prints the decision JSON when you answer; `UserPromptSubmit` only withdraws a pending Reply and shows nothing.
 
 ## License
 
-MIT License - see LICENSE file for details
-
+MIT, see [LICENSE](LICENSE). Original work by jamez01.

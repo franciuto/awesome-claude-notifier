@@ -1,221 +1,337 @@
-"""Hook handler for Claude Code integration"""
+"""Hook handler for Claude Code integration
+
+Notification layout:
+    title: "<session name> · <group>"   e.g. "Claude Notify configuration · Done"
+    body:  what happened, at most ~2 lines
+"""
 
 import json
-import sys
 import os
+import re
+import signal
+import subprocess
+import sys
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple
 from .notifier import ClaudeNotifier
+
+
+# Groups shown in the title
+NEEDS_YOU = "Needs you"
+DONE = "Done"
+PAUSED = "Paused"
+ERROR = "Error"
+LIMIT = "Limit"
+INFO = "Info"
+
+# One sound per group, generated with ElevenLabs into ~/Library/Sounds (see sounds/generate.sh)
+GROUP_SOUNDS = {
+    NEEDS_YOU: "claude-notify-needs-you.aiff",
+    DONE: "claude-notify-done.aiff",
+    PAUSED: "claude-notify-paused.aiff",
+    ERROR: "claude-notify-error.aiff",
+    LIMIT: "claude-notify-limit.aiff",
+    INFO: "claude-notify-info.aiff",
+}
+
+
+def sound_for(group: str) -> Optional[str]:
+    """The group's sound if installed, else None (macOS default sound)"""
+    name = GROUP_SOUNDS.get(group)
+    return name if name and (Path.home() / "Library/Sounds" / name).exists() else None
+
+# Per Notification type (hook input "notification_type"): group and fallback text
+NOTIFICATION_TYPES = {
+    "permission_prompt": (NEEDS_YOU, "Asking for permission"),
+    "idle_prompt": (NEEDS_YOU, "Waiting for your reply"),
+    "elicitation_dialog": (NEEDS_YOU, "An MCP server is asking for input"),
+    "elicitation_url_dialog": (NEEDS_YOU, "An MCP server wants you to open a link"),
+    "agent_needs_input": (NEEDS_YOU, "A background agent is waiting for you"),
+    "agent_completed": (DONE, "A background agent finished"),
+    "auth_success": (INFO, "Signed in"),
+    "quota_auto_resume_fired": (LIMIT, "Usage limit reset, work resumed"),
+    "quota_auto_resume_stale": (NEEDS_YOU, "Usage limit reset, press Enter to resume"),
+    "quota_auto_resume_disabled": (LIMIT, "Stopped waiting for the usage limit reset"),
+}
+
+# Per StopFailure "error"
+STOP_FAILURE_TEXTS = {
+    "rate_limit": "Rate limit reached",
+    "overloaded": "Server overloaded",
+    "authentication_failed": "Authentication failed",
+    "billing_error": "Billing problem",
+    "server_error": "Server error",
+    "max_output_tokens": "Response too long, cut off",
+    "model_not_found": "Model not found",
+}
+
+# Roughly two lines of a macOS banner
+SUMMARY_MAX_CHARS = 120
+
+DESKTOP_SESSIONS_DIR = Path.home() / "Library/Application Support/Claude/claude-code-sessions"
+
+# One pending Reply per session: a newer Stop or a prompt typed in the terminal replaces it
+WAITERS_DIR = Path.home() / "Library/Caches/claude-notify/waiters"
+
+# How long a permission notification waits before the terminal dialog takes over
+PERMISSION_WAIT = 20
+
+# Used when the terminal app can't be told from __CFBundleIdentifier
+TERMINAL_BUNDLE_IDS = {
+    "dev.warp.Warp-Stable", "com.apple.Terminal", "com.googlecode.iterm2",
+    "com.mitchellh.ghostty", "net.kovidgoyal.kitty", "com.github.wez.wezterm",
+    "io.alacritty", "com.microsoft.VSCode", "com.todesktop.230313mzl4w4u92",
+}
+
+
+def summarize(text: str, max_chars: int = SUMMARY_MAX_CHARS) -> str:
+    """Strip markdown and keep the first sentences that fit in about two lines"""
+    text = re.sub(r"```.*?```", " ", text, flags=re.S)           # code blocks
+    text = re.sub(r"\[([^\]]+)\]\([^)]*\)", r"\1", text)          # links -> label
+    text = re.sub(r"^\s{0,3}(#+|[-*>]|\d+\.)\s+", "", text, flags=re.M)  # headings, bullets
+    text = re.sub(r"[*_`|]", "", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    if len(text) <= max_chars:
+        return text
+
+    summary = ""
+    for sentence in re.split(r"(?<=[.!?])\s+", text):
+        if summary and len(summary) + 1 + len(sentence) > max_chars:
+            break
+        summary = f"{summary} {sentence}".strip()
+    if len(summary) > max_chars or not summary:
+        summary = text[: max_chars - 1].rsplit(" ", 1)[0] + "…"
+    return summary
 
 
 class HookHandler:
     """Process Claude Code hook events and send appropriate notifications"""
-    
+
     def __init__(self, notifier: Optional[ClaudeNotifier] = None):
         self.notifier = notifier or ClaudeNotifier()
-        
-        # Define notification templates for different hook events
-        self.event_templates = {
-            "PreToolUse": {
-                "title": "Claude Tool Request",
-                "message": "Claude wants to use {tool_name}",
-                "urgency": "normal"
-            },
-            "PostToolUse": {
-                "title": "Claude Tool Complete",
-                "message": "{tool_name} execution completed",
-                "urgency": "low"
-            },
-            "Notification": {
-                "title": "Claude Notification",
-                "message": "Claude has sent a notification",
-                "urgency": "normal"
-            },
-            "Stop": {
-                "title": "Claude Response Complete",
-                "message": "Claude has finished responding",
-                "urgency": "normal"
-            },
-            "SubagentStop": {
-                "title": "Claude Task Complete",
-                "message": "Claude subagent has finished",
-                "urgency": "low"
-            }
-        }
-        
-        # Special handling for certain tools
-        self.critical_tools = ["Bash", "Write", "Edit", "MultiEdit"]
-    
-    def _extract_project_info(self, data: Dict[str, Any]) -> Optional[str]:
-        """Extract project directory from transcript path"""
-        transcript_path = data.get("transcript_path", "")
+
+    def get_session_name(self, data: Dict[str, Any]) -> str:
+        """
+        Name of the session as shown in Claude's sidebar / session list.
+
+        Order: title set by hand or by the desktop app (custom-title), then the
+        auto-generated one (ai-title), then the desktop app metadata, then the folder name.
+        """
+        title = self._title_from_transcript(data.get("transcript_path", ""))
+        if not title:
+            title = self._title_from_desktop_app(data.get("session_id", ""))
+        if not title:
+            cwd = data.get("cwd") or ""
+            title = Path(cwd).name if cwd else ""
+        return title or "Session"
+
+    def _title_from_transcript(self, transcript_path: str) -> Optional[str]:
+        """Read the latest custom-title / ai-title record from the session transcript"""
         if not transcript_path:
-            return self._get_current_project_fallback()
-        
-        # Convert to Path object for easier manipulation
-        path = Path(transcript_path)
-        
-        # The transcript is typically in .claude/tmp/<session_id>/transcript.txt
-        # We want to find the project root (parent of .claude)
+            return None
+        custom, auto = None, None
         try:
-            # Look for .claude in the path
-            parts = path.parts
-            for i, part in enumerate(parts):
-                if part == ".claude":
-                    if i > 0:
-                        project_path = Path(*parts[:i])
-                        project_name = parts[i-1]
-                        
-                        # Check if .claude is in user's home directory (global Claude session)
-                        home_path = Path.home()
-                        if project_path == home_path:
-                            # This is a global Claude session, try to get actual project
-                            return self._get_current_project_fallback()
-                        
-                        # This is a project-specific .claude directory
-                        return f"{project_name} ({project_path})"
-            
-            # If no .claude found, try to extract meaningful directory info
-            # Look for common project indicators
-            for i in range(len(parts) - 1, -1, -1):
-                part = parts[i]
-                # Skip common temp/hidden directories
-                if part in ["tmp", "temp", ".claude", ".git", "__pycache__"]:
+            with open(Path(transcript_path).expanduser(), "r", errors="ignore") as f:
+                for line in f:
+                    # Cheap filter before parsing: title records are rare
+                    if '-title"' not in line:
+                        continue
+                    try:
+                        record = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    if record.get("type") == "custom-title" and record.get("customTitle"):
+                        custom = record["customTitle"]
+                    elif record.get("type") == "ai-title" and record.get("aiTitle"):
+                        auto = record["aiTitle"]
+        except OSError:
+            return None
+        return custom or auto
+
+    def _title_from_desktop_app(self, session_id: str) -> Optional[str]:
+        """Look up the title the Claude desktop app keeps for this CLI session id"""
+        if not session_id or not DESKTOP_SESSIONS_DIR.is_dir():
+            return None
+        for meta in DESKTOP_SESSIONS_DIR.glob("*/*/local_*.json"):
+            try:
+                with open(meta, "r") as f:
+                    content = f.read()
+                if session_id not in content:
                     continue
-                # Skip session-like IDs (long alphanumeric strings)
-                if len(part) > 20 and part.replace("-", "").replace("_", "").isalnum():
-                    continue
-                # This might be a project directory
-                if i > 0:
-                    parent_path = Path(*parts[:i+1])
-                    return f"{part} ({parent_path})"
-            
-            # Fallback to current working directory detection
-            return self._get_current_project_fallback()
-            
-        except Exception:
-            return self._get_current_project_fallback()
-    
-    def _get_current_project_fallback(self) -> Optional[str]:
-        """Get current project info as fallback when transcript path is not helpful"""
-        try:
-            # Try to get current working directory from environment
-            cwd = os.environ.get("PWD") or os.getcwd()
-            cwd_path = Path(cwd)
-            
-            # Extract project name from current working directory
-            project_name = cwd_path.name
-            
-            # Avoid generic directory names and user names
-            generic_names = ["home", "tmp", "temp", "Desktop", "Documents", "Downloads", 
-                           "users", "user", "workspace", "projects"]
-            user_names = ["james", "alice", "bob", "admin", "root"]  # Common user names
-            
-            if (project_name.lower() in [name.lower() for name in generic_names] or 
-                project_name.lower() in [name.lower() for name in user_names]):
-                # Try to find a meaningful project directory by going up the path
-                for parent in cwd_path.parents:
-                    parent_name = parent.name
-                    if (parent_name.lower() not in [name.lower() for name in generic_names] and
-                        parent_name.lower() not in [name.lower() for name in user_names] and
-                        parent_name not in ["", "/"]):
-                        return f"{parent_name} ({parent})"
-                
-                # If we can't find a good project name, just use current dir
-                return f"Current Project ({cwd_path})"
-            
-            return f"{project_name} ({cwd_path})"
-            
-        except Exception:
-            return "Unknown Project"
-        
+                record = json.loads(content)
+                if record.get("cliSessionId") == session_id and record.get("title"):
+                    return record["title"]
+            except (OSError, json.JSONDecodeError):
+                continue
+        return None
+
+    def describe_event(self, event_type: str, data: Dict[str, Any]) -> Tuple[str, str]:
+        """Group for the title and a short summary for the body"""
+        last_message = data.get("last_assistant_message") or ""
+
+        if event_type == "Stop":
+            group = PAUSED if data.get("background_tasks") else DONE
+            return group, summarize(last_message) or "Finished responding"
+
+        if event_type == "Notification":
+            group, fallback = NOTIFICATION_TYPES.get(data.get("notification_type", ""), (INFO, "Notification"))
+            message = data.get("message") or ""
+            tool = re.search(r"permission to use (\S+)", message)
+            if tool:
+                return group, f"Asking to use {tool.group(1)}"
+            return group, summarize(message) if message and group == INFO else fallback
+
+        if event_type == "StopFailure":
+            error = data.get("error", "unknown")
+            detail = data.get("error_details") or last_message
+            text = STOP_FAILURE_TEXTS.get(error, error)
+            return ERROR, summarize(f"{text}. {detail}" if detail else text)
+
+        if event_type == "PermissionDenied":
+            return ERROR, summarize(f"Auto mode blocked {data.get('tool_name', 'a tool')}. {data.get('reason', '')}")
+
+        if event_type == "PermissionRequest":
+            return NEEDS_YOU, f"Asking to use {data.get('tool_name', 'a tool')}"
+
+        if event_type == "SubagentStop":
+            return DONE, summarize(last_message) or "A subagent finished"
+
+        if event_type == "TaskCompleted":
+            return DONE, summarize(data.get("task_subject") or "Task completed")
+
+        return INFO, event_type
+
     def process_hook_event(self, event_type: str, data: Dict[str, Any]) -> bool:
         """
         Process a hook event and send appropriate notification
-        
+
         Args:
-            event_type: Type of hook event (PreToolUse, PostToolUse, etc.)
+            event_type: Type of hook event (Stop, Notification, StopFailure, ...)
             data: JSON data from the hook
-            
+
         Returns:
             bool: True if notification was sent successfully
         """
-        # Extract project information
-        project_info = self._extract_project_info(data)
-        
-        if event_type not in self.event_templates:
-            # Unknown event type, send generic notification
-            message = f"Unknown event: {event_type}"
-            if project_info:
-                message = f"{message}\nProject: {project_info}"
-            return self.notifier.send_notification(
-                title="Claude Event",
-                message=message,
-                urgency="normal"
-            )
-        
-        template = self.event_templates[event_type]
-        title = template["title"]
-        message = template["message"]
-        urgency = template["urgency"]
-        
-        # Add project info to title for better context
-        if project_info:
-            # Extract just the project name for the title
-            project_name = project_info.split(" (")[0] if " (" in project_info else project_info
-            title = f"{title} - {project_name}"
-        
-        # Customize message based on event type and data
-        if event_type in ["PreToolUse", "PostToolUse"]:
-            tool_name = data.get("tool_name", "Unknown Tool")
-            message = message.format(tool_name=tool_name)
-            
-            # Increase urgency for critical tools
-            if tool_name in self.critical_tools and event_type == "PreToolUse":
-                urgency = "critical"
-                title = f"⚠️ {title}"
-                message = f"Claude wants to use {tool_name} - Review required!"
-            
-            # Add tool input preview for PreToolUse
-            if event_type == "PreToolUse" and "tool_input" in data:
-                tool_input = data["tool_input"]
-                preview = self._get_tool_input_preview(tool_name, tool_input)
-                if preview:
-                    message = f"{message}\n{preview}"
-        
-        # Always show the full project path in the message for all events
-        if project_info:
-            # Show full project info in the message body
-            message = f"{message}\nProject: {project_info}"
-        
-        # Send the notification
+        group, summary = self.describe_event(event_type, data)
         return self.notifier.send_notification(
-            title=title,
-            message=message,
-            urgency=urgency,
-            sound=(urgency in ["normal", "critical"])
+            title=f"{self.get_session_name(data)} · {group}",
+            message=summary,
+            urgency="critical" if group == ERROR else "normal",
+            sound_name=sound_for(group),
         )
-    
-    def _get_tool_input_preview(self, tool_name: str, tool_input: Dict[str, Any]) -> Optional[str]:
-        """Get a preview of tool input for the notification"""
-        if tool_name == "Bash":
-            command = tool_input.get("command", "").strip()
-            if len(command) > 50:
-                command = command[:47] + "..."
-            return f"Command: {command}"
-        
-        elif tool_name in ["Write", "Edit", "MultiEdit"]:
-            file_path = tool_input.get("file_path", "")
-            if file_path:
-                return f"File: {file_path}"
-        
-        elif tool_name == "Read":
-            file_path = tool_input.get("file_path", "")
-            if file_path:
-                return f"Reading: {file_path}"
-        
+
+    # --- Interactive notifications (CLI only) ---
+
+    @staticmethod
+    def in_desktop_app() -> bool:
+        """The Claude desktop app has its own UI for permissions and replies"""
+        return os.environ.get("CLAUDE_CODE_ENTRYPOINT") == "claude-desktop"
+
+    @staticmethod
+    def terminal_bundle_id() -> Optional[str]:
+        """Bundle id of the terminal app hosting this session, when macOS tells us"""
+        return os.environ.get("__CFBundleIdentifier")
+
+    def user_at_terminal(self) -> bool:
+        """True when the terminal is the frontmost app, so the normal dialog is quicker"""
+        try:
+            front = subprocess.run(["lsappinfo", "front"], capture_output=True, text=True, timeout=2).stdout.strip()
+            info = subprocess.run(["lsappinfo", "info", "-only", "bundleid", front],
+                                  capture_output=True, text=True, timeout=2).stdout
+        except (OSError, subprocess.TimeoutExpired):
+            return False
+        match = re.search(r'"?(?:bundleID|CFBundleIdentifier)"?\s*=\s*"([^"]+)"', info)
+        if not match:
+            return False
+        own = self.terminal_bundle_id()
+        return match.group(1) == own if own else match.group(1) in TERMINAL_BUNDLE_IDS
+
+    def bring_terminal_forward(self) -> None:
+        """Clicking the notification itself takes you to the terminal"""
+        bundle = self.terminal_bundle_id()
+        if bundle:
+            subprocess.run(["open", "-b", bundle], capture_output=True)
+
+    def handle_permission_request(self, data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """
+        Ask Allow / Deny from a notification.
+
+        Returns the hook output to print, or None to leave the decision to the terminal dialog.
+        """
+        if self.in_desktop_app() or self.user_at_terminal():
+            return None
+
+        tool = data.get("tool_name", "tool")
+        tool_input = data.get("tool_input") or {}
+        detail = (tool_input.get("command") or tool_input.get("file_path")
+                  or tool_input.get("url") or tool_input.get("description") or "")
+        answer = self.notifier.ask(
+            title=f"{self.get_session_name(data)} · {NEEDS_YOU}",
+            message=summarize(f"{tool}: {detail}" if detail else f"Asking to use {tool}"),
+            actions="permission",
+            wait=PERMISSION_WAIT,
+            sound_name=sound_for(NEEDS_YOU),
+        )
+        action = (answer or {}).get("action")
+        if action == "open":
+            self.bring_terminal_forward()
+        if action not in ("allow", "deny"):
+            return None
+
+        decision: Dict[str, Any] = {"behavior": action}
+        if action == "deny":
+            decision["message"] = "The user denied permission from the notification."
+        return {"hookSpecificOutput": {"hookEventName": "PermissionRequest", "decision": decision}}
+
+    def notify_and_wait_reply(self, event_type: str, data: Dict[str, Any], wait: int) -> Optional[str]:
+        """Show the notification with a Reply field; return the text the user sent, if any"""
+        session_id = data.get("session_id", "unknown")
+        self.cancel_reply_wait(session_id)
+        WAITERS_DIR.mkdir(parents=True, exist_ok=True)
+        pid_file = WAITERS_DIR / f"{session_id}.pid"
+        pid_file.write_text(str(os.getpid()))
+
+        try:
+            group, summary = self.describe_event(event_type, data)
+            answer = self.notifier.ask(
+                title=f"{self.get_session_name(data)} · {group}",
+                message=summary,
+                actions="reply",
+                wait=wait,
+                sound_name=sound_for(group),
+            )
+        finally:
+            if pid_file.exists() and pid_file.read_text().strip() == str(os.getpid()):
+                pid_file.unlink()
+
+        if answer is None:
+            # Helper unavailable: fall back to a plain notification
+            self.process_hook_event(event_type, data)
+            return None
+        if answer.get("action") == "open":
+            self.bring_terminal_forward()
+        if answer.get("action") == "reply" and answer.get("text", "").strip():
+            return answer["text"].strip()
         return None
-    
+
+    @staticmethod
+    def cancel_reply_wait(session_id: str) -> None:
+        """Withdraw a pending Reply notification for this session, if any"""
+        pid_file = WAITERS_DIR / f"{session_id}.pid"
+        try:
+            pid = int(pid_file.read_text().strip())
+            # A stale pid may now belong to another process: only signal our own waiter
+            command = subprocess.run(["ps", "-p", str(pid), "-o", "command="],
+                                     capture_output=True, text=True).stdout
+            if "claude-notify" in command:
+                os.kill(pid, signal.SIGTERM)
+        except (OSError, ValueError):
+            pass
+        try:
+            pid_file.unlink()
+        except OSError:
+            pass
+
     def read_stdin_json(self) -> Optional[Dict[str, Any]]:
         """Read JSON data from stdin"""
         try:
@@ -223,7 +339,7 @@ class HookHandler:
             input_data = sys.stdin.read()
             if not input_data:
                 return None
-            
+
             # Parse JSON
             return json.loads(input_data)
         except json.JSONDecodeError as e:
@@ -232,31 +348,19 @@ class HookHandler:
         except Exception as e:
             print(f"Error reading stdin: {e}", file=sys.stderr)
             return None
-    
+
     def determine_event_type(self, data: Dict[str, Any]) -> Optional[str]:
-        """
-        Determine the event type from the hook data
-        
-        Claude hooks don't always include the event type in the JSON,
-        so we need to infer it from the data structure
-        """
-        # Check for explicit event type
+        """Event type from the hook data; Claude Code sends it as hook_event_name"""
+        if data.get("hook_event_name"):
+            return data["hook_event_name"]
         if "event_type" in data:
             return data["event_type"]
-        
-        # Infer from data structure
+
+        # Older payloads: infer from the data structure
         if "tool_name" in data:
-            if "tool_response" in data:
-                return "PostToolUse"
-            else:
-                return "PreToolUse"
-        
-        # Check for notification-specific fields
+            return "PostToolUse" if "tool_response" in data else "PreToolUse"
         if "notification_type" in data:
             return "Notification"
-        
-        # Default to Stop if we have session info but no tool info
-        if "session_id" in data and "tool_name" not in data:
+        if "session_id" in data:
             return "Stop"
-        
         return None

@@ -1,6 +1,7 @@
 """Command-line interface for Claude Notify"""
 
 import click
+import json
 import time
 import sys
 from pathlib import Path
@@ -232,7 +233,13 @@ def config_reset():
     is_flag=True,
     help="Test mode - read from test.json file instead of stdin"
 )
-def hook(event_type: Optional[str], test: bool):
+@click.option(
+    "--reply-wait",
+    type=int,
+    default=0,
+    help="Stop/Notification: offer Reply and wait this many seconds for a reply (use with asyncRewake)"
+)
+def hook(event_type: Optional[str], test: bool, reply_wait: int):
     """
     Process Claude Code hook events from JSON input
     
@@ -259,7 +266,6 @@ def hook(event_type: Optional[str], test: bool):
     if test:
         # Test mode - read from file
         try:
-            import json
             with open("test.json", "r") as f:
                 data = json.load(f)
         except FileNotFoundError:
@@ -283,6 +289,30 @@ def hook(event_type: Optional[str], test: bool):
             click.echo("Use --event-type to specify the event type explicitly", err=True)
             sys.exit(1)
     
+    # Allow / Deny from the notification; no output leaves it to the terminal dialog
+    if event_type == "PermissionRequest":
+        output = handler.handle_permission_request(data)
+        if output:
+            click.echo(json.dumps(output))
+        sys.exit(0)
+
+    # A prompt typed in the terminal makes a pending Reply pointless
+    if event_type == "UserPromptSubmit":
+        handler.cancel_reply_wait(data.get("session_id", "unknown"))
+        sys.exit(0)
+
+    # Reply: exit code 2 makes an asyncRewake hook wake Claude with stderr
+    if reply_wait > 0 and not handler.in_desktop_app():
+        reply = handler.notify_and_wait_reply(event_type, data, reply_wait)
+        if reply:
+            click.echo(
+                "Message from the user, sent by replying to a macOS notification. "
+                "Treat it as a new message from them and answer normally:\n\n" + reply,
+                err=True,
+            )
+            sys.exit(2)
+        sys.exit(0)
+
     # Process the hook event
     success = handler.process_hook_event(event_type, data)
     

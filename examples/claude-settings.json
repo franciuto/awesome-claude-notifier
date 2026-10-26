@@ -1,34 +1,47 @@
 {
+  "preferredNotifChannel": "notifications_disabled",
   "hooks": {
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "claude-notify hook --event-type Notification",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "claude-notify hook --event-type PermissionRequest",
+            "timeout": 40
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
-        "matcher": ".*",
         "hooks": [
           {
             "type": "command",
-            "command": "claude-notify hook"
+            "command": "claude-notify hook --event-type Stop --reply-wait 3540",
+            "asyncRewake": true,
+            "timeout": 3600
           }
         ]
       }
     ],
-    "PreToolUse": [
+    "UserPromptSubmit": [
       {
-        "matcher": "(Bash|Write|Edit|MultiEdit)",
         "hooks": [
           {
             "type": "command",
-            "command": "claude-notify hook"
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "claude-notify hook"
+            "command": "claude-notify hook --event-type UserPromptSubmit",
+            "timeout": 5
           }
         ]
       }
