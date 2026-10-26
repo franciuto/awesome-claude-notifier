@@ -23,6 +23,8 @@ Each hook in `~/.claude/settings.json` runs `claude-notify hook` and pipes in a 
 
 The text is cut to about 120 characters, which is two lines in a macOS banner.
 
+**The language.** Group names, fixed sentences and buttons follow the language of the chat. `detect_language` in `claude_notify/i18n.py` reads the end of the transcript, takes your most recent messages (and Claude's if yours are short), and counts common words of each supported language. With too little text to decide, it falls back to the `language` setting in `~/.claude/settings.json`, then to English. The part of the body quoted from Claude's answer is already in the right language.
+
 **The sound.** Each group plays `~/Library/Sounds/claude-notify-<group>.aiff`. If the file is missing, macOS plays its default sound.
 
 ## 2. The app shows the notification

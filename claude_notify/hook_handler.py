@@ -3,6 +3,7 @@
 Notification layout:
     title: "<session name> · <group>"   e.g. "Claude Notify configuration · Done"
     body:  what happened, at most ~2 lines
+Fixed texts follow the language the session is chatting in (see i18n.py).
 """
 
 import json
@@ -13,56 +14,39 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import Dict, Any, Optional, Tuple
+from .i18n import detect_language, texts
 from .notifier import ClaudeNotifier
 
 
-# Groups shown in the title
-NEEDS_YOU = "Needs you"
-DONE = "Done"
-PAUSED = "Paused"
-ERROR = "Error"
-LIMIT = "Limit"
-INFO = "Info"
-
-# One sound per group, generated with ElevenLabs into ~/Library/Sounds (see sounds/generate.sh)
-GROUP_SOUNDS = {
-    NEEDS_YOU: "claude-notify-needs-you.aiff",
-    DONE: "claude-notify-done.aiff",
-    PAUSED: "claude-notify-paused.aiff",
-    ERROR: "claude-notify-error.aiff",
-    LIMIT: "claude-notify-limit.aiff",
-    INFO: "claude-notify-info.aiff",
-}
+# Groups; the title shows them in the chat's language (see i18n.py)
+NEEDS_YOU = "needs-you"
+DONE = "done"
+PAUSED = "paused"
+ERROR = "error"
+LIMIT = "limit"
+INFO = "info"
 
 
 def sound_for(group: str) -> Optional[str]:
-    """The group's sound if installed, else None (macOS default sound)"""
-    name = GROUP_SOUNDS.get(group)
-    return name if name and (Path.home() / "Library/Sounds" / name).exists() else None
+    """The group's sound if installed, else None (macOS default sound).
 
-# Per Notification type (hook input "notification_type"): group and fallback text
-NOTIFICATION_TYPES = {
-    "permission_prompt": (NEEDS_YOU, "Asking for permission"),
-    "idle_prompt": (NEEDS_YOU, "Waiting for your reply"),
-    "elicitation_dialog": (NEEDS_YOU, "An MCP server is asking for input"),
-    "elicitation_url_dialog": (NEEDS_YOU, "An MCP server wants you to open a link"),
-    "agent_needs_input": (NEEDS_YOU, "A background agent is waiting for you"),
-    "agent_completed": (DONE, "A background agent finished"),
-    "auth_success": (INFO, "Signed in"),
-    "quota_auto_resume_fired": (LIMIT, "Usage limit reset, work resumed"),
-    "quota_auto_resume_stale": (NEEDS_YOU, "Usage limit reset, press Enter to resume"),
-    "quota_auto_resume_disabled": (LIMIT, "Stopped waiting for the usage limit reset"),
-}
+    One sound per group, generated with ElevenLabs into ~/Library/Sounds (see sounds/generate.sh).
+    """
+    name = f"claude-notify-{group}.aiff"
+    return name if (Path.home() / "Library/Sounds" / name).exists() else None
 
-# Per StopFailure "error"
-STOP_FAILURE_TEXTS = {
-    "rate_limit": "Rate limit reached",
-    "overloaded": "Server overloaded",
-    "authentication_failed": "Authentication failed",
-    "billing_error": "Billing problem",
-    "server_error": "Server error",
-    "max_output_tokens": "Response too long, cut off",
-    "model_not_found": "Model not found",
+# Group per Notification type (hook input "notification_type"); texts are in i18n.py
+NOTIFICATION_GROUPS = {
+    "permission_prompt": NEEDS_YOU,
+    "idle_prompt": NEEDS_YOU,
+    "elicitation_dialog": NEEDS_YOU,
+    "elicitation_url_dialog": NEEDS_YOU,
+    "agent_needs_input": NEEDS_YOU,
+    "agent_completed": DONE,
+    "auth_success": INFO,
+    "quota_auto_resume_fired": LIMIT,
+    "quota_auto_resume_stale": NEEDS_YOU,
+    "quota_auto_resume_disabled": LIMIT,
 }
 
 # Roughly two lines of a macOS banner
@@ -123,7 +107,7 @@ class HookHandler:
         if not title:
             cwd = data.get("cwd") or ""
             title = Path(cwd).name if cwd else ""
-        return title or "Session"
+        return title or ""
 
     def _title_from_transcript(self, transcript_path: str) -> Optional[str]:
         """Read the latest custom-title / ai-title record from the session transcript"""
@@ -165,41 +149,51 @@ class HookHandler:
                 continue
         return None
 
-    def describe_event(self, event_type: str, data: Dict[str, Any]) -> Tuple[str, str]:
-        """Group for the title and a short summary for the body"""
+    def describe_event(self, event_type: str, data: Dict[str, Any], language: str) -> Tuple[str, str]:
+        """Group for the title and a short summary for the body, in the given language"""
+        t = texts(language)
         last_message = data.get("last_assistant_message") or ""
+        tool_name = data.get("tool_name") or t["a_tool"]
 
         if event_type == "Stop":
             group = PAUSED if data.get("background_tasks") else DONE
-            return group, summarize(last_message) or "Finished responding"
+            return group, summarize(last_message) or t["finished"]
 
         if event_type == "Notification":
-            group, fallback = NOTIFICATION_TYPES.get(data.get("notification_type", ""), (INFO, "Notification"))
+            kind = data.get("notification_type", "")
+            group = NOTIFICATION_GROUPS.get(kind, INFO)
             message = data.get("message") or ""
             tool = re.search(r"permission to use (\S+)", message)
             if tool:
-                return group, f"Asking to use {tool.group(1)}"
-            return group, summarize(message) if message and group == INFO else fallback
+                return group, t["asking_to_use"].format(tool=tool.group(1))
+            if kind in t["notification_types"]:
+                return group, t["notification_types"][kind]
+            return group, summarize(message) or t["notification"]
 
         if event_type == "StopFailure":
             error = data.get("error", "unknown")
             detail = data.get("error_details") or last_message
-            text = STOP_FAILURE_TEXTS.get(error, error)
+            text = t["stop_failures"].get(error, error)
             return ERROR, summarize(f"{text}. {detail}" if detail else text)
 
         if event_type == "PermissionDenied":
-            return ERROR, summarize(f"Auto mode blocked {data.get('tool_name', 'a tool')}. {data.get('reason', '')}")
+            return ERROR, summarize(t["auto_mode_blocked"].format(tool=tool_name, reason=data.get("reason", "")))
 
         if event_type == "PermissionRequest":
-            return NEEDS_YOU, f"Asking to use {data.get('tool_name', 'a tool')}"
+            return NEEDS_YOU, t["asking_to_use"].format(tool=tool_name)
 
         if event_type == "SubagentStop":
-            return DONE, summarize(last_message) or "A subagent finished"
+            return DONE, summarize(last_message) or t["subagent_finished"]
 
         if event_type == "TaskCompleted":
-            return DONE, summarize(data.get("task_subject") or "Task completed")
+            return DONE, summarize(data.get("task_subject") or t["task_completed"])
 
         return INFO, event_type
+
+    def title(self, data: Dict[str, Any], group: str, language: str) -> str:
+        """'<session name> · <group>' with the group in the chat's language"""
+        t = texts(language)
+        return f"{self.get_session_name(data) or t['session']} · {t['groups'][group]}"
 
     def process_hook_event(self, event_type: str, data: Dict[str, Any]) -> bool:
         """
@@ -212,9 +206,10 @@ class HookHandler:
         Returns:
             bool: True if notification was sent successfully
         """
-        group, summary = self.describe_event(event_type, data)
+        language = detect_language(data)
+        group, summary = self.describe_event(event_type, data, language)
         return self.notifier.send_notification(
-            title=f"{self.get_session_name(data)} · {group}",
+            title=self.title(data, group, language),
             message=summary,
             urgency="critical" if group == ERROR else "normal",
             sound_name=sound_for(group),
@@ -261,16 +256,18 @@ class HookHandler:
         if self.in_desktop_app() or self.user_at_terminal():
             return None
 
+        language = detect_language(data)
         tool = data.get("tool_name", "tool")
         tool_input = data.get("tool_input") or {}
         detail = (tool_input.get("command") or tool_input.get("file_path")
                   or tool_input.get("url") or tool_input.get("description") or "")
         answer = self.notifier.ask(
-            title=f"{self.get_session_name(data)} · {NEEDS_YOU}",
-            message=summarize(f"{tool}: {detail}" if detail else f"Asking to use {tool}"),
+            title=self.title(data, NEEDS_YOU, language),
+            message=summarize(f"{tool}: {detail}" if detail else texts(language)["asking_to_use"].format(tool=tool)),
             actions="permission",
             wait=PERMISSION_WAIT,
             sound_name=sound_for(NEEDS_YOU),
+            language=language,
         )
         action = (answer or {}).get("action")
         if action == "open":
@@ -292,13 +289,15 @@ class HookHandler:
         pid_file.write_text(str(os.getpid()))
 
         try:
-            group, summary = self.describe_event(event_type, data)
+            language = detect_language(data)
+            group, summary = self.describe_event(event_type, data, language)
             answer = self.notifier.ask(
-                title=f"{self.get_session_name(data)} · {group}",
+                title=self.title(data, group, language),
                 message=summary,
                 actions="reply",
                 wait=wait,
                 sound_name=sound_for(group),
+                language=language,
             )
         finally:
             if pid_file.exists() and pid_file.read_text().strip() == str(os.getpid()):
