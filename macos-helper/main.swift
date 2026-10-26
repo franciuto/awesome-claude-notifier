@@ -2,7 +2,7 @@
 // optionally, waits for the user to answer it from the notification itself.
 //
 // Usage: "Claude Notify" --title T [--body B] [--sound NAME|none]
-//                        [--actions permission|reply] [--lang en|it] [--wait SECONDS] [--id ID]
+//                        [--actions permission|reply] [--wait SECONDS] [--id ID]
 //
 // With --wait, stays alive until answered or timed out. The answer is written to
 // ~/Library/Caches/claude-notify/responses/<id>.json:
@@ -43,24 +43,16 @@ func logError(_ text: String) {
     }
 }
 
-// Button titles per language (--lang); keep in sync with claude_notify/i18n.py
-let buttonTitles: [String: (allow: String, deny: String, reply: String, send: String, placeholder: String)] = [
-    "en": ("Allow", "Deny", "Reply", "Send", "Message Claude…"),
-    "it": ("Consenti", "Nega", "Rispondi", "Invia", "Scrivi a Claude…"),
-]
-
-// One category per kind and language, e.g. "permission.it"
+// Buttons stay in English whatever language the notification text is in
 func registerCategories(_ center: UNUserNotificationCenter) {
-    var categories = Set<UNNotificationCategory>()
-    for (lang, t) in buttonTitles {
-        let allow = UNNotificationAction(identifier: "allow", title: t.allow, options: [])
-        let deny = UNNotificationAction(identifier: "deny", title: t.deny, options: [.destructive])
-        let reply = UNTextInputNotificationAction(identifier: "reply", title: t.reply, options: [],
-                                                  textInputButtonTitle: t.send, textInputPlaceholder: t.placeholder)
-        categories.insert(UNNotificationCategory(identifier: "permission.\(lang)", actions: [allow, deny], intentIdentifiers: []))
-        categories.insert(UNNotificationCategory(identifier: "reply.\(lang)", actions: [reply], intentIdentifiers: []))
-    }
-    center.setNotificationCategories(categories)
+    let allow = UNNotificationAction(identifier: "allow", title: "Allow", options: [])
+    let deny = UNNotificationAction(identifier: "deny", title: "Deny", options: [.destructive])
+    let reply = UNTextInputNotificationAction(identifier: "reply", title: "Reply", options: [],
+                                              textInputButtonTitle: "Send", textInputPlaceholder: "Message Claude…")
+    center.setNotificationCategories([
+        UNNotificationCategory(identifier: "permission", actions: [allow, deny], intentIdentifiers: []),
+        UNNotificationCategory(identifier: "reply", actions: [reply], intentIdentifiers: []),
+    ])
 }
 
 final class Delegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
@@ -94,10 +86,7 @@ final class Delegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterD
         content.title = args["title"] ?? "Claude"
         if let subtitle = args["subtitle"] { content.subtitle = subtitle }
         if let body = args["body"] { content.body = body }
-        if let actions = args["actions"] {
-            let lang = buttonTitles[args["lang"] ?? ""] != nil ? args["lang"]! : "en"
-            content.categoryIdentifier = "\(actions).\(lang)"
-        }
+        if let actions = args["actions"] { content.categoryIdentifier = actions }
         content.userInfo = ["id": id]
 
         switch args["sound"] {

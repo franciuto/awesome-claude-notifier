@@ -65,7 +65,7 @@ class ClaudeNotifier:
             return self._send_plyer_notification(title, message, timeout)
     
     def ask(self, title: str, message: str, actions: str, wait: int,
-            sound_name: Optional[str] = None, language: str = "en") -> Optional[Dict[str, str]]:
+            sound_name: Optional[str] = None) -> Optional[Dict[str, str]]:
         """
         Show an interactive notification (macOS helper only) and wait for the answer
 
@@ -87,7 +87,7 @@ class ClaudeNotifier:
         pid_file = HELPER_RESPONSES_DIR / f"{request_id}.pid"
         cmd = ["open", "-n", "-g", "-W", "-a", MACOS_HELPER_APP, "--args",
                "--title", title, "--body", message,
-               "--actions", actions, "--lang", language, "--wait", str(wait), "--id", request_id]
+               "--actions", actions, "--wait", str(wait), "--id", request_id]
         if sound_name:
             cmd += ["--sound", sound_name]
         child = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

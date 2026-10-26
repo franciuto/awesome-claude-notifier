@@ -15,7 +15,7 @@ I moved the token check into the middleware and added two tests for expired toke
 
 The first line is the session name, the one Claude shows in its session list, followed by what happened. The second line is the start of Claude's answer, so most of the time you know whether to go back to the terminal without opening it.
 
-Notifications speak the language you chat in. If you write to Claude in Italian, you get "Finito" and a "Rispondi" button; in English, "Done" and "Reply". English and Italian are supported so far.
+The text follows the language you chat in: write to Claude in Italian and the notification says "Finito", write in English and it says "Done". The buttons stay in English either way. English and Italian are supported so far.
 
 Every event falls into one of six groups, and each group has its own sound:
 
@@ -74,7 +74,7 @@ To change a sound, edit its description in `sounds/generate.sh` and run the scri
 
 To change the icon, run `python assets/icon/make_app_icon.py your-image.png assets/icon/app-icon.png` with any square image, then build the app again.
 
-The notification texts live in `claude_notify/i18n.py`, one block per language. Adding a language means adding a block there and the button titles in `macos-helper/main.swift`.
+The notification texts live in `claude_notify/i18n.py`, one block per language. To add a language, add a block of texts and a list of its common words there.
 
 For how the pieces fit together, see [docs/how-it-works.md](docs/how-it-works.md).
 

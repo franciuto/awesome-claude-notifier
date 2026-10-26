@@ -1,7 +1,7 @@
 """Notification texts per language, and detection of the language a session is chatting in
 
-To add a language: add its texts to TEXTS and its common words to STOPWORDS,
-then the button titles in macos-helper/main.swift.
+To add a language: add its texts to TEXTS and its common words to STOPWORDS.
+Buttons (Allow / Deny / Reply) are not translated; they stay in English.
 """
 
 import json

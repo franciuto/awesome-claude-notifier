@@ -47,5 +47,6 @@ For logic changes, test `HookHandler` with a fake notifier object (`send_notific
 | Killing a pid from a stale pid file | Can signal an unrelated process | Check the command line contains `claude-notify` first (see `cancel_reply_wait`) |
 | Interpolating text into AppleScript | Quotes break out of the string | Escape `\` and `"` (see `_send_macos_notification`) |
 | Adding a group without a sound | Default macOS sound plays | Add `sounds/mp3/<group>.mp3`, both scripts, `player.html` and the group name in every `i18n.TEXTS` block |
-| Adding a language only in `i18n.py` | Texts translated, buttons stay in English | Also add it to `buttonTitles` in `macos-helper/main.swift` and `STOPWORDS` |
+| Adding a language to `TEXTS` only | Never detected, texts stay in the fallback language | Also add its common words to `STOPWORDS` |
+| Translating the buttons | Not wanted: Allow/Deny/Reply/Send stay English | Leave `registerCategories` in `main.swift` as is |
 | Hard-coding a user-facing string in `hook_handler.py` | Wrong language in half the sessions | Put it in `i18n.TEXTS` for every language |

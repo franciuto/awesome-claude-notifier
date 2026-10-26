@@ -267,7 +267,6 @@ class HookHandler:
             actions="permission",
             wait=PERMISSION_WAIT,
             sound_name=sound_for(NEEDS_YOU),
-            language=language,
         )
         action = (answer or {}).get("action")
         if action == "open":
@@ -297,7 +296,6 @@ class HookHandler:
                 actions="reply",
                 wait=wait,
                 sound_name=sound_for(group),
-                language=language,
             )
         finally:
             if pid_file.exists() and pid_file.read_text().strip() == str(os.getpid()):
