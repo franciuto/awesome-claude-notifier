@@ -1,7 +1,8 @@
 """Notification texts per language, and detection of the language a session is chatting in
 
 To add a language: add its texts to TEXTS and its common words to STOPWORDS.
-Buttons (Allow / Deny / Reply) are not translated; they stay in English.
+Group names in the title (Done, Needs you, ...) and the buttons (Allow / Deny / Reply)
+are not translated; they stay in English.
 """
 
 import json
@@ -13,10 +14,6 @@ DEFAULT_LANGUAGE = "en"
 
 TEXTS: Dict[str, Dict[str, Any]] = {
     "en": {
-        "groups": {
-            "needs-you": "Needs you", "done": "Done", "paused": "Paused",
-            "error": "Error", "limit": "Limit", "info": "Info",
-        },
         "notification_types": {
             "permission_prompt": "Asking for permission",
             "idle_prompt": "Waiting for your reply",
@@ -48,10 +45,6 @@ TEXTS: Dict[str, Dict[str, Any]] = {
         "session": "Session",
     },
     "it": {
-        "groups": {
-            "needs-you": "Serve te", "done": "Finito", "paused": "In pausa",
-            "error": "Errore", "limit": "Limite", "info": "Info",
-        },
         "notification_types": {
             "permission_prompt": "Chiede un permesso",
             "idle_prompt": "Aspetta una tua risposta",

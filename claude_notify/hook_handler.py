@@ -18,13 +18,18 @@ from .i18n import detect_language, texts
 from .notifier import ClaudeNotifier
 
 
-# Groups; the title shows them in the chat's language (see i18n.py)
+# Groups; the title always shows them in English, whatever the chat language
 NEEDS_YOU = "needs-you"
 DONE = "done"
 PAUSED = "paused"
 ERROR = "error"
 LIMIT = "limit"
 INFO = "info"
+
+GROUP_LABELS = {
+    NEEDS_YOU: "Needs you", DONE: "Done", PAUSED: "Paused",
+    ERROR: "Error", LIMIT: "Limit", INFO: "Info",
+}
 
 
 def sound_for(group: str) -> Optional[str]:
@@ -191,9 +196,8 @@ class HookHandler:
         return INFO, event_type
 
     def title(self, data: Dict[str, Any], group: str, language: str) -> str:
-        """'<session name> · <group>' with the group in the chat's language"""
-        t = texts(language)
-        return f"{self.get_session_name(data) or t['session']} · {t['groups'][group]}"
+        """'<session name> · <group>'; only the fallback session word follows the chat language"""
+        return f"{self.get_session_name(data) or texts(language)['session']} · {GROUP_LABELS[group]}"
 
     def process_hook_event(self, event_type: str, data: Dict[str, Any]) -> bool:
         """

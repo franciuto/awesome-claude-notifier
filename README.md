@@ -15,7 +15,7 @@ I moved the token check into the middleware and added two tests for expired toke
 
 The first line is the session name, the one Claude shows in its session list, followed by what happened. The second line is the start of Claude's answer, so most of the time you know whether to go back to the terminal without opening it.
 
-The text follows the language you chat in: write to Claude in Italian and the notification says "Finito", write in English and it says "Done". The buttons stay in English either way. English and Italian are supported so far.
+The second line follows the language you chat in: chat in Italian and you read "Chiede di usare Bash", chat in English and you read "Asking to use Bash". The group name in the title and the buttons stay in English either way. English and Italian are supported so far.
 
 Every event falls into one of six groups, and each group has its own sound:
 
