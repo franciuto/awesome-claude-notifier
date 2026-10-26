@@ -261,8 +261,13 @@ def hook(event_type: Optional[str], test: bool, reply_wait: int):
       }
     }
     """
+    # Claude Code talks UTF-8; on Windows pipes default to the ANSI code page
+    for stream in (sys.stdin, sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8")
+
     handler = HookHandler()
-    
+
     if test:
         # Test mode - read from file
         try:
@@ -306,7 +311,7 @@ def hook(event_type: Optional[str], test: bool, reply_wait: int):
         reply = handler.notify_and_wait_reply(event_type, data, reply_wait)
         if reply:
             click.echo(
-                "Message from the user, sent by replying to a macOS notification. "
+                "Message from the user, sent by replying to a desktop notification. "
                 "Treat it as a new message from them and answer normally:\n\n" + reply,
                 err=True,
             )

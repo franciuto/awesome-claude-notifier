@@ -17,6 +17,7 @@ setup(
         "Source": "https://github.com/jamez01/claude-notify",
     },
     packages=find_packages(),
+    package_data={"claude_notify.windows": ["toast.ps1", "ToastWaiter.cs", "icon.png"]},
     classifiers=[
         "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",

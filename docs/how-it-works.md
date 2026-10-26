@@ -42,6 +42,17 @@ When you click a button or send a reply, the app writes the answer to `~/Library
 
 A pending Reply is withdrawn when you type a prompt in the terminal (the `UserPromptSubmit` hook) or when Claude finishes again, since only the newest one makes sense.
 
+## On Windows
+
+The same hook flow, with a PowerShell script in place of the app: `claude_notify/windows/toast.ps1`. The hook starts it with `powershell.exe` (Windows PowerShell 5.1, because PowerShell 7 can't load the WinRT notification types) and passes the request as JSON in the `CLAUDE_NOTIFY_REQUEST` environment variable, so quotes in the text never reach a command line.
+
+- **Name and icon.** The script registers the app id `ClaudeNotify.Hook` under `HKCU\Software\Classes\AppUserModelId` with the name "Claude Notify" and `claude_notify/windows/icon.png`.
+- **Sound.** Toasts of unpackaged apps can't play their own files, so the toast is silent and the script plays `%LOCALAPPDATA%\claude-notify\sounds\claude-notify-<group>.mp3` itself. If the file is missing, Windows plays its default sound.
+- **Plain notifications** return at once; the script stays in the background until the sound has played.
+- **Allow / Deny and Reply.** Windows PowerShell can't subscribe to WinRT events (`Register-ObjectEvent` refuses), so the waiting is done by `claude_notify/windows/ToastWaiter.cs`. The script compiles it once with the `csc.exe` that ships with the .NET Framework, into `cache\ToastWaiter-<hash>.dll`, and waits on it. The answer goes to `%LOCALAPPDATA%\claude-notify\cache\responses\<id>.json`, as on macOS.
+- **Withdrawing.** Windows ends a process without running signal handlers, so the script watches the hook's pid and hides the toast once it is gone. A pending Reply is cancelled by ending the waiter with exit code 0; the pid file in `cache\waiters` is trusted only if that process started before the file was written.
+- **Terminal in front.** The foreground window counts as the terminal when it belongs to one of the hook's parent processes, or to a known terminal such as Windows Terminal or VS Code. Clicking the toast body brings forward the first window up that same process tree.
+
 ## The hook command
 
 ```

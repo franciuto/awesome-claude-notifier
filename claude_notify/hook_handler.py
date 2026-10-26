@@ -12,8 +12,8 @@ import signal
 import subprocess
 import sys
 from pathlib import Path
-from typing import Dict, Any, Optional, Tuple
-from .notifier import ClaudeNotifier
+from typing import Dict, Any, List, Optional, Tuple
+from .notifier import CACHE_DIR, SOUND_EXT, SOUNDS_DIR, ClaudeNotifier
 
 
 # Groups shown in the title
@@ -24,21 +24,25 @@ ERROR = "Error"
 LIMIT = "Limit"
 INFO = "Info"
 
-# One sound per group, generated with ElevenLabs into ~/Library/Sounds (see sounds/generate.sh)
+# One sound per group, generated with ElevenLabs (see sounds/generate.sh) and installed into
+# SOUNDS_DIR as <name>.aiff on macOS, <name>.mp3 on Windows
 GROUP_SOUNDS = {
-    NEEDS_YOU: "claude-notify-needs-you.aiff",
-    DONE: "claude-notify-done.aiff",
-    PAUSED: "claude-notify-paused.aiff",
-    ERROR: "claude-notify-error.aiff",
-    LIMIT: "claude-notify-limit.aiff",
-    INFO: "claude-notify-info.aiff",
+    NEEDS_YOU: "claude-notify-needs-you",
+    DONE: "claude-notify-done",
+    PAUSED: "claude-notify-paused",
+    ERROR: "claude-notify-error",
+    LIMIT: "claude-notify-limit",
+    INFO: "claude-notify-info",
 }
 
 
 def sound_for(group: str) -> Optional[str]:
-    """The group's sound if installed, else None (macOS default sound)"""
+    """The group's sound file name if installed, else None (system default sound)"""
     name = GROUP_SOUNDS.get(group)
-    return name if name and (Path.home() / "Library/Sounds" / name).exists() else None
+    if not name:
+        return None
+    name += SOUND_EXT
+    return name if (SOUNDS_DIR / name).exists() else None
 
 # Per Notification type (hook input "notification_type"): group and fallback text
 NOTIFICATION_TYPES = {
@@ -68,10 +72,21 @@ STOP_FAILURE_TEXTS = {
 # Roughly two lines of a macOS banner
 SUMMARY_MAX_CHARS = 120
 
-DESKTOP_SESSIONS_DIR = Path.home() / "Library/Application Support/Claude/claude-code-sessions"
+def desktop_sessions_dirs() -> List[Path]:
+    """Where the Claude desktop app keeps its session list"""
+    if sys.platform != "win32":
+        return [Path.home() / "Library/Application Support/Claude/claude-code-sessions"]
+    # Installer build under %APPDATA%, Microsoft Store build in its package's redirected copy
+    dirs = []
+    if os.environ.get("APPDATA"):
+        dirs.append(Path(os.environ["APPDATA"]) / "Claude/claude-code-sessions")
+    if os.environ.get("LOCALAPPDATA"):
+        packages = Path(os.environ["LOCALAPPDATA"]) / "Packages"
+        dirs += packages.glob("Claude_*/LocalCache/Roaming/Claude/claude-code-sessions")
+    return dirs
 
 # One pending Reply per session: a newer Stop or a prompt typed in the terminal replaces it
-WAITERS_DIR = Path.home() / "Library/Caches/claude-notify/waiters"
+WAITERS_DIR = CACHE_DIR / "waiters"
 
 # How long a permission notification waits before the terminal dialog takes over
 PERMISSION_WAIT = 20
@@ -81,6 +96,13 @@ TERMINAL_BUNDLE_IDS = {
     "dev.warp.Warp-Stable", "com.apple.Terminal", "com.googlecode.iterm2",
     "com.mitchellh.ghostty", "net.kovidgoyal.kitty", "com.github.wez.wezterm",
     "io.alacritty", "com.microsoft.VSCode", "com.todesktop.230313mzl4w4u92",
+}
+
+# Windows: used when the foreground app isn't one of this session's parent processes
+TERMINAL_EXES = {
+    "windowsterminal.exe", "conhost.exe", "openconsole.exe", "cmd.exe", "powershell.exe",
+    "pwsh.exe", "mintty.exe", "wezterm-gui.exe", "alacritty.exe", "warp.exe", "tabby.exe",
+    "code.exe", "cursor.exe", "windsurf.exe",
 }
 
 
@@ -131,7 +153,7 @@ class HookHandler:
             return None
         custom, auto = None, None
         try:
-            with open(Path(transcript_path).expanduser(), "r", errors="ignore") as f:
+            with open(Path(transcript_path).expanduser(), "r", encoding="utf-8", errors="ignore") as f:
                 for line in f:
                     # Cheap filter before parsing: title records are rare
                     if '-title"' not in line:
@@ -150,11 +172,12 @@ class HookHandler:
 
     def _title_from_desktop_app(self, session_id: str) -> Optional[str]:
         """Look up the title the Claude desktop app keeps for this CLI session id"""
-        if not session_id or not DESKTOP_SESSIONS_DIR.is_dir():
+        if not session_id:
             return None
-        for meta in DESKTOP_SESSIONS_DIR.glob("*/*/local_*.json"):
+        metas = (meta for d in desktop_sessions_dirs() if d.is_dir() for meta in d.glob("*/*/local_*.json"))
+        for meta in metas:
             try:
-                with open(meta, "r") as f:
+                with open(meta, "r", encoding="utf-8") as f:
                     content = f.read()
                 if session_id not in content:
                     continue
@@ -234,6 +257,8 @@ class HookHandler:
 
     def user_at_terminal(self) -> bool:
         """True when the terminal is the frontmost app, so the normal dialog is quicker"""
+        if sys.platform == "win32":
+            return self._user_at_terminal_windows()
         try:
             front = subprocess.run(["lsappinfo", "front"], capture_output=True, text=True, timeout=2).stdout.strip()
             info = subprocess.run(["lsappinfo", "info", "-only", "bundleid", front],
@@ -246,8 +271,24 @@ class HookHandler:
         own = self.terminal_bundle_id()
         return match.group(1) == own if own else match.group(1) in TERMINAL_BUNDLE_IDS
 
+    @staticmethod
+    def _user_at_terminal_windows() -> bool:
+        """The foreground window belongs to a parent of this process, or to a known terminal"""
+        from . import windows
+
+        try:
+            pid, exe, processes = windows.foreground_app()
+        except OSError:
+            return False
+        if pid is None:
+            return False
+        return pid in windows.ancestors(os.getpid(), processes) or exe in TERMINAL_EXES
+
     def bring_terminal_forward(self) -> None:
         """Clicking the notification itself takes you to the terminal"""
+        if sys.platform == "win32":
+            # Done by the toast script: only the process the click went to may change the foreground
+            return
         bundle = self.terminal_bundle_id()
         if bundle:
             subprocess.run(["open", "-b", bundle], capture_output=True)
@@ -320,11 +361,19 @@ class HookHandler:
         pid_file = WAITERS_DIR / f"{session_id}.pid"
         try:
             pid = int(pid_file.read_text().strip())
-            # A stale pid may now belong to another process: only signal our own waiter
-            command = subprocess.run(["ps", "-p", str(pid), "-o", "command="],
-                                     capture_output=True, text=True).stdout
-            if "claude-notify" in command:
-                os.kill(pid, signal.SIGTERM)
+            if sys.platform == "win32":
+                from . import windows
+
+                # A stale pid may now belong to another process, which started after the file was written
+                started = windows.process_started_at(pid)
+                if started is not None and started <= pid_file.stat().st_mtime + 1:
+                    windows.terminate(pid)
+            else:
+                # A stale pid may now belong to another process: only signal our own waiter
+                command = subprocess.run(["ps", "-p", str(pid), "-o", "command="],
+                                         capture_output=True, text=True).stdout
+                if "claude-notify" in command:
+                    os.kill(pid, signal.SIGTERM)
         except (OSError, ValueError):
             pass
         try:

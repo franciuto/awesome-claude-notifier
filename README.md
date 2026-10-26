@@ -4,7 +4,7 @@
 
 # awesome-claude-notifier
 
-Claude Code works for minutes at a time, and you probably don't sit and watch it. This sends you a macOS notification when something happens: which session it was, what happened, and a sound you learn to recognize. When Claude asks to run a tool or finishes a task, you can answer from the notification itself.
+Claude Code works for minutes at a time, and you probably don't sit and watch it. This sends you a macOS or Windows notification when something happens: which session it was, what happened, and a sound you learn to recognize. When Claude asks to run a tool or finishes a task, you can answer from the notification itself.
 
 ## What a notification looks like
 
@@ -38,7 +38,7 @@ When Claude finishes, the notification has a **Reply** field. What you type goes
 
 Both only work in terminal sessions. The Claude desktop app has its own buttons for this, so there you get plain notifications.
 
-## Install
+## Install on macOS
 
 You need macOS 13 or later, Python 3.8 or later, and the Xcode command line tools.
 
@@ -66,11 +66,37 @@ You need macOS 13 or later, Python 3.8 or later, and the Xcode command line tool
 
 Start a new `claude` session and you're set.
 
+## Install on Windows
+
+You need Windows 10 or 11 and Python 3.8 or later. There is nothing to build: the notifications are Windows toasts shown by a PowerShell script that ships with the package.
+
+1. Install the Python package:
+
+   ```powershell
+   pip install .
+   ```
+
+   If it stops with "Microsoft Visual C++ 14.0 or greater is required" while building PyYAML, there is no prebuilt PyYAML for your Python version yet (common on Windows on ARM and on brand-new Python releases). Install its pure-Python version first, then try again:
+
+   ```powershell
+   $env:PYYAML_FORCE_LIBYAML = "0"; pip install pyyaml
+   ```
+
+2. Install the sounds into `%LOCALAPPDATA%\claude-notify\sounds`:
+
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File sounds\install.ps1
+   ```
+
+3. Copy the hooks from [`examples/claude-settings.json`](examples/claude-settings.json) into `%USERPROFILE%\.claude\settings.json`. If `claude-notify` isn't on your `PATH`, write its full path with forward slashes, for example `C:/Users/you/AppData/Roaming/Python/Python312/Scripts/claude-notify.exe`.
+
+The first notification registers the app as "Claude Notify". In Settings → System → Notifications you can turn off Focus assist for it or change how long banners stay.
+
 ## Make it yours
 
 To change a sound, edit its description in `sounds/generate.sh` and run the script with the group name, for example `./sounds/generate.sh error`. It uses the [ElevenLabs](https://elevenlabs.io) sound effects API, so you need their CLI logged in.
 
-To change the icon, run `python assets/icon/make_app_icon.py your-image.png assets/icon/app-icon.png` with any square image, then build the app again.
+To change the icon, run `python assets/icon/make_app_icon.py your-image.png assets/icon/app-icon.png` with any square image, then build the app again. On Windows, copy the result to `claude_notify/windows/icon.png` and run `pip install .` again.
 
 The notification texts are at the top of `claude_notify/hook_handler.py`.
 

@@ -46,5 +46,8 @@ Issues = "https://github.com/jamez01/claude-notify/issues"
 [project.scripts]
 claude-notify = "claude_notify.cli:main"
 
+[tool.setuptools.package-data]
+"claude_notify.windows" = ["toast.ps1", "ToastWaiter.cs", "icon.png"]
+
 [tool.setuptools_scm]
 write_to = "claude_notify/_version.py"
