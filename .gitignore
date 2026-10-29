@@ -9,6 +9,9 @@ env/
 config.yaml
 *.log
 
+# Claude Code personal settings
+.claude/settings.local.json
+
 # Editors
 .idea/
 .vscode/

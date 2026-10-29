@@ -18,7 +18,7 @@ macOS, Windows and Linux notifications for Claude Code hooks, shipped as a Claud
 | `macos-helper/` | `Claude Notify.app` source; `build.sh` writes the app into `macos/` |
 | `macos/` | Committed prebuilt `Claude Notify.app` (universal, ad-hoc signed, sounds inside) |
 | `sounds/` | MP3 per group in `mp3/`, `generate.sh` (ElevenLabs), `soften.sh` (fade-in and level cap, run by `generate.sh`; needs ffmpeg), `player.html` |
-| `assets/` | Banner, app icon, `make_app_icon.py` |
+| `assets/` | Banner, app icon, `make_app_icon.py`, README mockups in `demo/` (HTML sources and their PNGs) |
 | `scripts/test-dispatcher.sh` | Shell test for the dispatcher |
 | `README.md`, `CHANGELOG.md` | User docs, including the install prompt for agents under "Onboard your agent"; the changelog |
 
