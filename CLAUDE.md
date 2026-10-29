@@ -7,7 +7,7 @@ macOS, Windows and Linux notifications for Claude Code hooks, shipped as a Claud
 | Path | What it is |
 |---|---|
 | `cmd/claude-notify/` | `main.go`: the `hook` command, dispatch per event, exit codes, panic recovery |
-| `internal/hook/` | Session name, event → group/text/sound (`describe.go`), Allow/Deny, Reply, pid files (`handler.go`), terminal-in-front per OS |
+| `internal/hook/` | Session name, event → group/text/sound (`describe.go`), texts per language and chat-language detection (`i18n.go`), Allow/Deny, Reply, pid files (`handler.go`), terminal-in-front per OS |
 | `internal/notify/` | Posts notifications per OS; `Ask` runs an interactive one and waits; macOS app install (`ensureApp`) |
 | `internal/winproc/` | Windows process helpers |
 | `bin/claude-notify` | POSIX `sh` dispatcher that `exec`s the binary for this OS and CPU (LF line endings) |
@@ -20,7 +20,7 @@ macOS, Windows and Linux notifications for Claude Code hooks, shipped as a Claud
 | `sounds/` | MP3 per group in `mp3/`, `generate.sh` (ElevenLabs), `soften.sh` (fade-in and level cap, run by `generate.sh`; needs ffmpeg), `player.html` |
 | `assets/` | Banner, app icon, `make_app_icon.py` |
 | `scripts/test-dispatcher.sh` | Shell test for the dispatcher |
-| `INSTALL-PROMPT.md`, `CHANGELOG.md` | The install prompt for agents; the changelog |
+| `README.md`, `CHANGELOG.md` | User docs, including the install prompt for agents under "Onboard your agent"; the changelog |
 
 ## Commands
 
@@ -58,6 +58,9 @@ Release: bump `version` in `.claude-plugin/plugin.json`, run `make dist`, commit
 | Killing a pid from a stale pid file | Can signal an unrelated process | Check the command line contains `claude-notify` first (see `CancelReplyWait`) |
 | Interpolating text into AppleScript | Quotes break out of the string | Escape `\` and `"` (see `darwin.Send`) |
 | Adding a group without a sound | Default system sound plays | Add it to `groupSlugs` in `internal/hook/describe.go`, `sounds/mp3/`, `generate.sh` and `player.html`, then `make dist` |
+| Adding a language to `languages` only | Never detected, texts stay in the fallback language | Also add its common words to `stopwords` in `i18n.go` |
+| Translating the buttons or group names | Not wanted: Allow/Deny/Reply/Send and Done/Needs you/... stay English | Only body sentences go in `languages` |
+| Hard-coding a user-facing sentence in `describe.go` or `handler.go` | Wrong language in half the sessions | Put it in `languages` in `i18n.go` for every language |
 | `Register-ObjectEvent` on a toast in `toast.ps1` | "Windows PowerShell cannot subscribe to Windows RT events" | Handle the event in `ToastWaiter.cs` |
 | Killing the Windows waiter with a plain kill | Exit code 15 instead of 0 | Use `stopWaiter` in `internal/hook/waiter_windows.go` |
 | A Go panic or a `flag` default (it exits 2 on a bad flag) | Claude Code reads exit 2 as a Reply | Keep the recovery in `run` and `flag.ContinueOnError`; exit 1 |

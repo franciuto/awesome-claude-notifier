@@ -4,6 +4,11 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [0.2.0] - unreleased
 
+### Added
+
+- The fixed sentences in a notification follow the language you chat in. English and Italian are included; group names and buttons stay in English.
+- README: an "Onboard your agent" button that leads to a ready install prompt with a copy button, plus sections on updating, uninstalling and fixing common problems.
+
 ### Changed
 
 - The hook is a Go binary instead of a Python package. No Python is needed any more.
@@ -20,3 +25,4 @@ All notable changes to this project are documented here. The format follows [Kee
 - The `send` and `check` commands from the original project.
 - The sound installers `sounds/install.sh` and `sounds/install.ps1`.
 - `examples/claude-settings.json`: the plugin carries its own hooks.
+- `INSTALL-PROMPT.md`: the prompt is now in the README.

@@ -31,6 +31,8 @@ Each hook runs `claude-notify hook` and Claude Code pipes in a JSON description 
 
 The text is cut to about 120 characters, which is two lines in a macOS banner.
 
+**The language.** The fixed sentences in the body follow the language of the chat; group names and buttons are always in English. `detectLanguage` in `internal/hook/i18n.go` reads the last 300 KB of the transcript, takes your most recent messages, then Claude's, skips messages the harness injected (they start with `<`), and counts common words of each supported language. The winner needs at least three hits and 1.5 times the runner-up. With too little text to decide, it falls back to the `language` setting in `~/.claude/settings.json`, then to English. The part of the body quoted from Claude's answer is already in the right language. With no session name at all, the title uses the word for "Session" in that language.
+
 **The sound.** Each group has a slug (`needs-you`, `done`, `paused`, `error`, `limit`, `info`). On macOS it plays `~/Library/Sounds/claude-notify-<slug>.aiff`; if the file is missing, macOS plays its default sound. On Windows it plays `sounds/mp3/<slug>.mp3` from the plugin folder.
 
 ## 2. The app shows the notification
