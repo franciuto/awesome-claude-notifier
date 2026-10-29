@@ -1,6 +1,20 @@
+# Go build output (go build ./cmd/claude-notify)
+/claude-notify
+
 # Python (until the Python package is removed)
 __pycache__/
 *.egg-info/
+build/
+dist/
+.pytest_cache/
+
+# Secrets and local config (sounds/generate.sh reads an ElevenLabs key)
+.env
+.venv/
+venv/
+env/
+config.yaml
+*.log
 
 # Editors
 .idea/
