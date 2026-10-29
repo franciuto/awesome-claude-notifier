@@ -20,9 +20,16 @@ Claude Code works for minutes at a time, and you probably don't sit and watch it
 
 ## What a notification looks like
 
-<p align="center">
-  <img src="assets/demo/windows-reply.png" alt="A Windows notification: my-app · Done, Refactored the auth module. All 42 tests pass., with a Reply field" width="380">
-</p>
+<table align="center">
+  <tr>
+    <th>macOS</th>
+    <th>Windows</th>
+  </tr>
+  <tr>
+    <td valign="top"><img src="assets/demo/macos-stack.png" alt="macOS Notification Center with one Claude Notify notification per group: Done with a Reply field, Info, Limit, Error, Paused, Needs you and Done" width="360"></td>
+    <td valign="top"><img src="assets/demo/windows-reply.png" alt="A Windows toast: my-app · Done, Refactored the auth module. All 42 tests pass., with a Reply field" width="380"></td>
+  </tr>
+</table>
 
 - **First line:** the session name, the one Claude shows in its session list, followed by what happened.
 - **Second line:** the start of Claude's answer, so most of the time you know whether to go back to the terminal without opening it.
@@ -183,18 +190,3 @@ On macOS, errors from the app go to `~/Library/Logs/claude-notify-helper.log`.
 - **Texts and languages.** The notification texts are in `internal/hook/i18n.go`, one block per language. To add a language, add a block of texts and a list of its common words there, then run `make dist-go`.
 
 For how the pieces fit together, see [docs/how-it-works.md](docs/how-it-works.md).
-
-## Releasing
-
-> [!NOTE]
-> For maintainers. Binaries and the macOS app are committed, and users only get an update when `version` changes.
-
-1. Bump `version` in `.claude-plugin/plugin.json`.
-2. Run `make dist`. It builds the five Go binaries and the app (macOS only, with the Xcode command line tools). Commit `bin/` and `macos/` together with the bump.
-3. Add the version to [CHANGELOG.md](CHANGELOG.md).
-4. Open a pull request into `master`. CI rebuilds the Go binaries and fails if they differ from the committed ones.
-5. Optionally tag the merge commit, for example `git tag v0.2.0`. No GitHub release is needed.
-
-## Credits
-
-Built on [claude-notify](https://github.com/jamez01/claude-notify) by jamez01, under the MIT license.
