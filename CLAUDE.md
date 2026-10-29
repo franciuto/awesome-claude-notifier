@@ -15,7 +15,7 @@ macOS and Windows notifications for Claude Code hooks. Python package `claude_no
 | `assets/` | Banner, app icon, `make_app_icon.py` |
 | `examples/claude-settings.json` | The hooks users copy into `~/.claude/settings.json` |
 
-`send`, `watch` and `config` are from the original project and are not part of the macOS work.
+`send` and `check` are from the original project and are not part of the macOS work.
 
 ## Commands
 
@@ -23,6 +23,7 @@ macOS and Windows notifications for Claude Code hooks. Python package `claude_no
 pip install .                       # reinstall after any Python change
 ./macos-helper/build.sh             # rebuild + install the helper app
 swiftc -typecheck macos-helper/main.swift
+python -m unittest discover tests   # hook contracts, no real notifications
 ./sounds/install.sh                 # install sounds
 echo '{"hook_event_name":"Stop","session_id":"t","cwd":"/tmp/demo","last_assistant_message":"Test."}' \
   | claude-notify hook              # send a real test notification

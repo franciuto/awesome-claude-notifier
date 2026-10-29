@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2"]
+requires = ["setuptools>=61", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -33,9 +33,7 @@ classifiers = [
     "Operating System :: POSIX :: Linux",
 ]
 dependencies = [
-    "plyer>=2.1",
     "click>=8.1.0",
-    "pyyaml>=6.0",
 ]
 
 [project.urls]
@@ -46,8 +44,8 @@ Issues = "https://github.com/jamez01/claude-notify/issues"
 [project.scripts]
 claude-notify = "claude_notify.cli:main"
 
+[tool.setuptools.packages.find]
+include = ["claude_notify*"]
+
 [tool.setuptools.package-data]
 "claude_notify.windows" = ["toast.ps1", "ToastWaiter.cs", "icon.png"]
-
-[tool.setuptools_scm]
-write_to = "claude_notify/_version.py"

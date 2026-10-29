@@ -2,6 +2,7 @@
 
 import json
 import platform
+import shutil
 import signal
 import subprocess
 import os
@@ -9,7 +10,6 @@ import sys
 import uuid
 from pathlib import Path
 from typing import Optional, Dict, Any
-from plyer import notification as plyer_notification
 
 # Helper app that posts notifications with its own (yellow) icon; see helper/build.sh
 MACOS_HELPER_APP = os.path.expanduser("~/Applications/Claude Notify.app")
@@ -72,13 +72,10 @@ class ClaudeNotifier:
                 return self._send_linux_notification(title, message, urgency, timeout)
             elif self.system == "windows":
                 return self._send_windows_notification(title, message, sound, sound_name)
-            else:
-                # Fallback to plyer for unknown systems
-                return self._send_plyer_notification(title, message, timeout)
+            return False
         except Exception as e:
-            print(f"Notification error: {e}")
-            # Try fallback method
-            return self._send_plyer_notification(title, message, timeout)
+            print(f"Notification error: {e}", file=sys.stderr)
+            return False
     
     def ask(self, title: str, message: str, actions: str, wait: int,
             sound_name: Optional[str] = None) -> Optional[Dict[str, str]]:
@@ -105,7 +102,8 @@ class ClaudeNotifier:
         pid_file = HELPER_RESPONSES_DIR / f"{request_id}.pid"
         cmd = ["open", "-n", "-g", "-W", "-a", MACOS_HELPER_APP, "--args",
                "--title", title, "--body", message,
-               "--actions", actions, "--wait", str(wait), "--id", request_id]
+               "--actions", actions, "--wait", str(wait), "--id", request_id,
+               "--parent", str(os.getpid())]
         if sound_name:
             cmd += ["--sound", sound_name]
         child = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -164,7 +162,8 @@ class ClaudeNotifier:
         try:
             answer = json.loads(answer_file.read_text(encoding="utf-8"))
             answer_file.unlink()
-            return answer
+            # The macOS helper failed; `open -W` exits 0 regardless, so it says so in the file
+            return None if answer.get("action") == "error" else answer
         except FileNotFoundError:
             return {"action": "timeout"} if child.returncode == 0 else None
         except (OSError, ValueError):
@@ -213,13 +212,6 @@ class ClaudeNotifier:
     ) -> bool:
         """Send notification on Linux using notify-send"""
         try:
-            # Check if notify-send is available
-            subprocess.run(
-                ["which", "notify-send"],
-                check=True,
-                capture_output=True
-            )
-            
             cmd = [
                 "notify-send",
                 f"--app-name={self.app_name}",
@@ -268,42 +260,17 @@ class ClaudeNotifier:
         return subprocess.Popen(cmd, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                                 stderr=subprocess.DEVNULL, creationflags=WINDOWS_CREATION_FLAGS)
     
-    def _send_plyer_notification(self, title: str, message: str, timeout: int) -> bool:
-        """Fallback notification using plyer library"""
-        try:
-            plyer_notification.notify(
-                title=title,
-                message=message,
-                app_name=self.app_name,
-                timeout=timeout
-            )
-            return True
-        except Exception:
-            return False
-    
     def check_dependencies(self) -> Dict[str, bool]:
         """Check which notification methods are available"""
-        deps = {
-            "plyer": True,  # Always available if installed
-            "native": False
-        }
+        deps = {"native": False}
         
         if self.system == "darwin":
             # macOS always has osascript
             deps["native"] = True
             deps["method"] = "osascript"
         elif self.system == "linux":
-            # Check for notify-send
-            try:
-                subprocess.run(
-                    ["which", "notify-send"],
-                    check=True,
-                    capture_output=True
-                )
-                deps["native"] = True
-                deps["method"] = "notify-send"
-            except subprocess.CalledProcessError:
-                deps["method"] = "plyer"
+            deps["native"] = shutil.which("notify-send") is not None
+            deps["method"] = "notify-send"
         elif self.system == "windows":
             # Toasts from Windows PowerShell 5.1, part of every Windows 10 and 11
             deps["native"] = True

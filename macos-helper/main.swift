@@ -2,12 +2,14 @@
 // optionally, waits for the user to answer it from the notification itself.
 //
 // Usage: "Claude Notify" --title T [--body B] [--sound NAME|none]
-//                        [--actions permission|reply] [--wait SECONDS] [--id ID]
+//                        [--actions permission|reply] [--wait SECONDS] [--id ID] [--parent PID]
 //
 // With --wait, stays alive until answered or timed out. The answer is written to
 // ~/Library/Caches/claude-notify/responses/<id>.json:
 //   {"action":"allow"}  {"action":"deny"}  {"action":"reply","text":"..."}
 //   {"action":"open"}   (notification clicked)
+//   {"action":"error"}  (could not post it; `open -W` hides the exit code)
+// With --parent, gives up as soon as that process is gone.
 // Launch it with `open -n -W -a` so macOS registers it as the app and routes clicks to it.
 //
 // Runs as a real (accessory) AppKit app: usernoted only grants notification
@@ -57,6 +59,7 @@ func registerCategories(_ center: UNUserNotificationCenter) {
 final class Delegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     let id = args["id"] ?? UUID().uuidString
     let wait = Double(args["wait"] ?? "") ?? 0
+    let parent = pid_t(args["parent"] ?? "") ?? 0
     var signalSources: [DispatchSourceSignal] = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -83,10 +86,10 @@ final class Delegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterD
     func post(_ center: UNUserNotificationCenter) {
         let content = UNMutableNotificationContent()
         content.title = args["title"] ?? "Claude"
-        if let subtitle = args["subtitle"] { content.subtitle = subtitle }
         if let body = args["body"] { content.body = body }
         if let actions = args["actions"] { content.categoryIdentifier = actions }
-        content.userInfo = ["id": id]
+        // Only a waiting instance reads the answer, so a click on a plain notification writes none
+        if wait > 0 { content.userInfo = ["id": id] }
 
         switch args["sound"] {
         case "none": break
@@ -128,9 +131,10 @@ final class Delegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterD
         let deadline = Date().addingTimeInterval(wait)
         Timer.scheduledTimer(withTimeInterval: 0.3, repeats: true) { timer in
             let answered = FileManager.default.fileExists(atPath: file.path)
-            if answered || Date() > deadline {
+            // The hook may be killed before it can read our pid file and stop us
+            let orphaned = self.parent > 0 && kill(self.parent, 0) != 0
+            if answered || orphaned || Date() > deadline {
                 timer.invalidate()
-                if !answered { print(#"{"action":"timeout"}"#) }
                 self.withdraw()
                 self.finish(0)
             }
@@ -171,6 +175,10 @@ final class Delegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterD
 
     func finish(_ code: Int32) {
         try? FileManager.default.removeItem(at: responsesDir.appendingPathComponent("\(id).pid"))
+        if code != 0 && wait > 0 {
+            try? FileManager.default.createDirectory(at: responsesDir, withIntermediateDirectories: true)
+            try? Data(#"{"action":"error"}"#.utf8).write(to: responsesDir.appendingPathComponent("\(id).json"), options: .atomic)
+        }
         DispatchQueue.main.async { exit(code) }
     }
 }

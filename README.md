@@ -76,12 +76,6 @@ You need Windows 10 or 11 and Python 3.8 or later. There is nothing to build: th
    pip install .
    ```
 
-   If it stops with "Microsoft Visual C++ 14.0 or greater is required" while building PyYAML, there is no prebuilt PyYAML for your Python version yet (common on Windows on ARM and on brand-new Python releases). Install its pure-Python version first, then try again:
-
-   ```powershell
-   $env:PYYAML_FORCE_LIBYAML = "0"; pip install pyyaml
-   ```
-
 2. Install the sounds into `%LOCALAPPDATA%\claude-notify\sounds`:
 
    ```powershell

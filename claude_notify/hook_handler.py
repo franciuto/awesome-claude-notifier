@@ -111,7 +111,7 @@ def summarize(text: str, max_chars: int = SUMMARY_MAX_CHARS) -> str:
     text = re.sub(r"```.*?```", " ", text, flags=re.S)           # code blocks
     text = re.sub(r"\[([^\]]+)\]\([^)]*\)", r"\1", text)          # links -> label
     text = re.sub(r"^\s{0,3}(#+|[-*>]|\d+\.)\s+", "", text, flags=re.M)  # headings, bullets
-    text = re.sub(r"[*_`|]", "", text)
+    text = re.sub(r"[*`|]", "", text)  # not "_": it is part of file and identifier names
     text = re.sub(r"\s+", " ", text).strip()
     if len(text) <= max_chars:
         return text
@@ -397,19 +397,3 @@ class HookHandler:
         except Exception as e:
             print(f"Error reading stdin: {e}", file=sys.stderr)
             return None
-
-    def determine_event_type(self, data: Dict[str, Any]) -> Optional[str]:
-        """Event type from the hook data; Claude Code sends it as hook_event_name"""
-        if data.get("hook_event_name"):
-            return data["hook_event_name"]
-        if "event_type" in data:
-            return data["event_type"]
-
-        # Older payloads: infer from the data structure
-        if "tool_name" in data:
-            return "PostToolUse" if "tool_response" in data else "PreToolUse"
-        if "notification_type" in data:
-            return "Notification"
-        if "session_id" in data:
-            return "Stop"
-        return None

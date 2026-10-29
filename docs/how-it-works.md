@@ -40,6 +40,8 @@ When you click a button or send a reply, the app writes the answer to `~/Library
 - **Allow / Deny.** The hook prints a `PermissionRequest` decision, and Claude Code applies it. With no answer after 20 seconds it prints nothing, so Claude Code shows its own prompt.
 - **Reply.** The `Stop` hook runs with `asyncRewake: true`, so it waits in the background while the terminal stays usable. When a reply arrives it prints the text to stderr and exits with code 2, which wakes the session and hands the text to Claude.
 
+If the app can't post the notification (for example, notifications are turned off for it), it writes `{"action":"error"}` instead, because `open -W` always exits 0. The hook then falls back to a plain notification. The hook also passes its own pid as `--parent`, and the app gives up as soon as that process is gone, so a killed hook never leaves a notification behind.
+
 A pending Reply is withdrawn when you type a prompt in the terminal (the `UserPromptSubmit` hook) or when Claude finishes again, since only the newest one makes sense.
 
 ## On Windows
