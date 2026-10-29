@@ -143,7 +143,7 @@ The README shows the two commands first, then the manual equivalents of steps 2â
 - Semver. This change is `0.2.0`: the install method breaks, which a pre-1.0 minor bump allows.
 - The plugin is named `notifier`, not `claude-notify`: Claude Code reserves the `claude-` prefix for its own plugins and `claude plugin validate` rejects it. The command and binaries keep the name `claude-notify`.
 - `CHANGELOG.md` in Keep a Changelog format, starting with `0.2.0`.
-- Commit messages follow the existing repo style: one imperative sentence, no `feat:` prefix, Claude co-author trailer.
+- Commit messages follow the existing repo style: one imperative sentence, no `feat:` prefix, no co-author or attribution trailer.
 - Work happens on `feat/go-rewrite` in small commits and is merged into `dev` through a pull request. Tagging `v0.2.0` and merging to `master` are the owner's decisions.
 
 ### Build and CI

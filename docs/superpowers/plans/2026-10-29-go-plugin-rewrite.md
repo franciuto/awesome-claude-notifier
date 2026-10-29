@@ -25,7 +25,7 @@
 - Notification title: `<session name> · <group>`. Body cut to 120 characters (runes), ending in `…` when cut mid-sentence.
 - Groups and sound slugs: Needs you `needs-you`, Done `done`, Paused `paused`, Error `error`, Limit `limit`, Info `info`.
 - Plugin version `0.2.0`. Marketplace name `awesome-claude-notifier`, plugin name `claude-notify`.
-- Commit messages: one imperative sentence, no `feat:` prefix, ending with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`. Never `git add -A` (the unrelated deletion of `.claude/settings.local.json` stays unstaged).
+- Commit messages: one imperative sentence, no `feat:` prefix, no co-author or attribution trailer. Never `git add -A` (the unrelated deletion of `.claude/settings.local.json` stays unstaged).
 
 ## Review Focus
 
@@ -291,4 +291,4 @@
 - [ ] **Step 2: macOS full manual check** of the same list.
 - [ ] **Step 3: Linux plain-notification check** (owner's machine or a desktop VM): `notify-send` present → notification shown; absent → hook exits 0.
 - [ ] **Step 4: Commit** the results and any doc changes — "Record the cross-platform check results". Push.
-- [ ] **Step 5: Open the PR** `feat/go-rewrite` → `dev` with `gh pr create`, body summarizing the change, the spike and manual results, and the line `🤖 Generated with [Claude Code](https://claude.com/claude-code)`. Merging, the release to `master` and the `v0.2.0` tag are the owner's.
+- [ ] **Step 5: Open the PR** `feat/go-rewrite` → `dev` with `gh pr create`, body summarizing the change, the spike and manual results,, with no attribution line. Merging, the release to `master` and the `v0.2.0` tag are the owner's.
