@@ -12,6 +12,7 @@ All notable changes to this project are documented here. The format follows [Kee
 - On Windows the sounds are played from the plugin folder.
 - Linux gets plain notifications through `notify-send`.
 - The app version follows the plugin version.
+- The sounds fade in over 100 ms and are capped at -26 LUFS, so they no longer start with a jolt. `sounds/soften.sh` does this for new sounds.
 
 ### Removed
 

@@ -71,7 +71,7 @@ You need `notify-send` (package `libnotify-bin` on Debian and Ubuntu, `libnotify
 
 ## Make it yours
 
-To change a sound, edit its description in `sounds/generate.sh` and run the script with the group name, for example `./sounds/generate.sh error`. It uses the [ElevenLabs](https://elevenlabs.io) sound effects API, so you need their CLI logged in. Then run `make dist` and bump `version` in `.claude-plugin/plugin.json`.
+To change a sound, edit its description in `sounds/generate.sh` and run the script with the group name, for example `./sounds/generate.sh error`. It uses the [ElevenLabs](https://elevenlabs.io) sound effects API, so you need their CLI logged in, and `ffmpeg` for `sounds/soften.sh`, which gives every new sound a short fade-in and caps its loudness. Then run `make dist` and bump `version` in `.claude-plugin/plugin.json`.
 
 To change the icon, run `python3 assets/icon/make_app_icon.py your-image.png assets/icon/app-icon.png` with any square image. On Windows the icon is `windows/icon.png`: replace that file. On macOS `macos-helper/build.sh` builds `assets/icon/app-icon.png` into the app. In a fork, run `make dist` and bump the version so macOS drops its cached icon.
 

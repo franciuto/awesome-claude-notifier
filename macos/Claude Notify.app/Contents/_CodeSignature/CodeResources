@@ -10,27 +10,27 @@
 		</data>
 		<key>Resources/claude-notify-done.aiff</key>
 		<data>
-		dYegF58Dj06pB35urZwdSetC/+E=
+		lLgOnzoT+Ap8HoIvTZGPjfz0m0Y=
 		</data>
 		<key>Resources/claude-notify-error.aiff</key>
 		<data>
-		N1lb4bm4ymURQ9FbLuV1jl9dhLA=
+		1286xAehfwMlx8Vsdr7Niz7r11g=
 		</data>
 		<key>Resources/claude-notify-info.aiff</key>
 		<data>
-		24Z43hZX48ysnqbFe67v0IzQfxk=
+		HRiQskFnmORrx/uuNYjrLMqyxyA=
 		</data>
 		<key>Resources/claude-notify-limit.aiff</key>
 		<data>
-		zcAMqSBaVosAiRVjK4sJEyDke2U=
+		lSB1E683Q1/Cn+XvML2SiAgl900=
 		</data>
 		<key>Resources/claude-notify-needs-you.aiff</key>
 		<data>
-		MnFdVbCgUv8o06UUfgW8I8ta7OQ=
+		9nT1G6omYpxPA7rtRyAMsHPZOrI=
 		</data>
 		<key>Resources/claude-notify-paused.aiff</key>
 		<data>
-		5u4xBaKvuYQYUtFmy8MHo6HfSkI=
+		st8R4zFKw9l02J3GBwXl4m2hzRI=
 		</data>
 	</dict>
 	<key>files2</key>
@@ -46,42 +46,42 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			svtX6b9jpj007gPJ8OadKS4s8fbdmnMJcRbKqunmOnw=
+			v5kWhrYrzelpOoDRpgvILbpu6tDZWwU5NOkEZoF70ZQ=
 			</data>
 		</dict>
 		<key>Resources/claude-notify-error.aiff</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			HxHUd5hrGi9vefF89bzbfGYRqdw1HqXebsDzGir1QKc=
+			GFw0iC45vRo9fxLV2KBMuWomhwrF2bXUwsr3d1fTkk4=
 			</data>
 		</dict>
 		<key>Resources/claude-notify-info.aiff</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			ONG2pvBmGoME2OGKIlpoBhHaUtW/cAGlfHoqO1DBNkk=
+			x3cl01Zxv0Wixjb6SaLsi+BxIKdIKjsHmeXR3Nk96gE=
 			</data>
 		</dict>
 		<key>Resources/claude-notify-limit.aiff</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			yunjY3MvLlirV5ZBtHd3sIgWUREKlOeIQJsnqWkim6Y=
+			2KR33aQv0biD3P3S3tzyd8fuSmp6cZ88l/FI2CduXWA=
 			</data>
 		</dict>
 		<key>Resources/claude-notify-needs-you.aiff</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			eaAAjnnMJ0DSjaPWt0VHhpx3Gf17IkkVO41idnERFC0=
+			+DJkTEqlUmqnCRD7qM3W3besuntPT56af2/Cm8q1CWg=
 			</data>
 		</dict>
 		<key>Resources/claude-notify-paused.aiff</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			55aQPxbACdu00w0+0J7dRRTQnzTYRhn1LUy6QQxnkY0=
+			PgcyCsyPzYjiAHp40z23L7CA+DtzQDCH5OWjjjeDQWk=
 			</data>
 		</dict>
 	</dict>

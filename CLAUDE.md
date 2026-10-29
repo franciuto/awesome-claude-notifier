@@ -17,7 +17,7 @@ macOS, Windows and Linux notifications for Claude Code hooks, shipped as a Claud
 | `windows/` | `toast.ps1` (toast, sound, waits for the answer), `ToastWaiter.cs` (click events, compiled on first use), `icon.png` |
 | `macos-helper/` | `Claude Notify.app` source; `build.sh` writes the app into `macos/` |
 | `macos/` | Committed prebuilt `Claude Notify.app` (universal, ad-hoc signed, sounds inside) |
-| `sounds/` | MP3 per group in `mp3/`, `generate.sh` (ElevenLabs), `player.html` |
+| `sounds/` | MP3 per group in `mp3/`, `generate.sh` (ElevenLabs), `soften.sh` (fade-in and level cap, run by `generate.sh`; needs ffmpeg), `player.html` |
 | `assets/` | Banner, app icon, `make_app_icon.py` |
 | `scripts/test-dispatcher.sh` | Shell test for the dispatcher |
 | `INSTALL-PROMPT.md`, `CHANGELOG.md` | The install prompt for agents; the changelog |

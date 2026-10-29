@@ -26,5 +26,6 @@ for g in "${groups[@]}"; do
   body=$(printf '{"text": %s, "duration_seconds": 1.2, "prompt_influence": 0.7}' \
     "$(prompt_for "$g" | /usr/bin/python3 -c 'import json,sys; print(json.dumps(sys.stdin.read().strip()))')")
   elevenlabs text-to-sound-effects convert --json "$body" -o "$HERE/mp3/$g.mp3" -q
+  "$HERE/soften.sh" "$HERE/mp3/$g.mp3"
   echo "generated sounds/mp3/$g.mp3"
 done
