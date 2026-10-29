@@ -13,10 +13,9 @@ Claude Code works for minutes at a time, and you probably don't sit and watch it
 
 ## What a notification looks like
 
-```
-Refactor auth module · Done
-I moved the token check into the middleware and added two tests for expired tokens.
-```
+<p align="center">
+  <img src="assets/demo/windows-reply.png" alt="A Windows notification: my-app · Done, Refactored the auth module. All 42 tests pass., with a Reply field" width="380">
+</p>
 
 The first line is the session name, the one Claude shows in its session list, followed by what happened. The second line is the start of Claude's answer, so most of the time you know whether to go back to the terminal without opening it.
 
