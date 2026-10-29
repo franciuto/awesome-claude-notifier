@@ -1,0 +1,3 @@
+bin/claude-notify text eol=lf
+bin/*/* binary -diff
+macos/** binary -diff
