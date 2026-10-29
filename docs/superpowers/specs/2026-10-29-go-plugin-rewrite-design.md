@@ -178,6 +178,17 @@ Each spike is throwaway code, run on a real machine, with a pass criterion and a
 
 The owner has Windows machines on both x64 and ARM64. S1 runs on both. Pushing `feat/go-rewrite` (binaries included) to the public `origin` is allowed, so S2 and S4 use a real `/plugin install` from that branch.
 
+### Spike results (macOS, 2026-10-29)
+
+Installed with `claude plugin marketplace add franciuto/awesome-claude-notifier#feat/go-rewrite` (a branch ref works) and `claude plugin install notifier@awesome-claude-notifier`. The cache copy keeps executable bits and has no `com.apple.quarantine` attribute; `codesign -v` passes on the cached `.app`.
+
+| # | Result |
+|---|---|
+| S2 | Pass. With the old app moved away, the first hook run copied the bundled app to `~/Applications` (version 0.2.0, signature valid), and notifications showed with the right icon. In a live session started with `--permission-mode default`, Allow and Deny from the notification both reached Claude. |
+| S3 | Fail, fallback applied. `UNNotificationSound(named:)` does not find sounds inside `Contents/Resources`; macOS played its default sound. The ensure step now installs the bundled `.aiff` files into `~/Library/Sounds` (all of them after an app update, missing ones otherwise). After that the owner heard the custom sound. |
+| S4 | Pass. A Reply typed into the Done notification woke the session through the plugin `Stop` hook (`asyncRewake`, exit 2 through the `sh` dispatcher's `exec`). |
+| S1 | Pending: Windows x64 and ARM64, run by the owner. |
+
 ## After the port (separate changes, not in this design)
 
 - Linux: XDG cache path, Allow/Deny through `notify-send --action ... --wait` where libnotify ≥ 0.7.10, sounds through `paplay`/`pw-play`.
