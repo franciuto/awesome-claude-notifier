@@ -45,6 +45,7 @@ func logError(_ text: String) {
     }
 }
 
+// Buttons stay in English whatever language the notification text is in
 func registerCategories(_ center: UNUserNotificationCenter) {
     let allow = UNNotificationAction(identifier: "allow", title: "Allow", options: [])
     let deny = UNNotificationAction(identifier: "deny", title: "Deny", options: [.destructive])
