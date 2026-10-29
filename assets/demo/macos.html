@@ -48,9 +48,14 @@
   .field { height: 26px; border-radius: 7px; background: var(--field); border: 1px solid rgba(255, 255, 255, 0.10);
            display: flex; align-items: center; padding: 0 10px; font-size: 13px; color: var(--muted); }
   .send { text-align: center; font-size: 13px; color: #7f828a; margin-top: 10px; }
-  .actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-  .btn { height: 28px; border-radius: 8px; background: var(--field); border: 1px solid rgba(255, 255, 255, 0.10);
-         display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 500; color: var(--text); }
+  .opts-row { position: relative; display: flex; justify-content: flex-end; margin-top: 8px; }
+  .opts { height: 24px; padding: 0 10px; border-radius: 7px; background: var(--field); border: 1px solid rgba(255, 255, 255, 0.10);
+          display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 500; color: var(--text); }
+  .menu { position: absolute; top: 28px; right: 0; width: 132px; padding: 5px; box-sizing: border-box;
+          background: rgba(44, 48, 60, 0.97); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 10px;
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45); }
+  .item { padding: 4px 9px; border-radius: 5px; font-size: 13px; color: var(--text); }
+  .item.on { background: #2f6fe0; }
 </style>
 </head>
 <body>
@@ -84,9 +89,10 @@
     <div class="card"><img src="../icon/app-icon.png" alt=""><div class="txt">
       <div class="title">Database migration · Paused</div><div class="body">The migration ran on staging. I am waiting for the build to finish before checking the logs.</div></div></div>
 
-    <div class="card"><img src="../icon/app-icon.png" alt=""><div class="txt">
+    <div class="card" style="z-index: 2"><img src="../icon/app-icon.png" alt=""><div class="txt">
       <div class="title">Refactor auth module · Needs you</div><div class="body">Bash: npm test -- --coverage</div>
-      <div class="reply actions"><div class="btn">Allow</div><div class="btn">Deny</div></div></div></div>
+      <div class="opts-row"><span class="opts">Options <svg width="9" height="9" viewBox="0 0 10 10" aria-hidden="true"><path d="M2 3.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></span>
+        <div class="menu"><div class="item on">Allow</div><div class="item">Deny</div></div></div></div></div>
 
     <div class="card"><img src="../icon/app-icon.png" alt=""><div class="txt">
       <div class="title">Refactor auth module · Done</div><div class="body">I moved the token check into the middleware and added two tests for expired tokens. All 48 tests pass.</div></div></div>

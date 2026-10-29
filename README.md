@@ -26,7 +26,7 @@ Claude Code works for minutes at a time, and you probably don't sit and watch it
     <th>Windows</th>
   </tr>
   <tr>
-    <td valign="top"><img src="assets/demo/macos-stack.png" alt="macOS notifications from Claude Notify, one per group: Done with a Reply field, Info, Limit, Error, Paused, Needs you with Allow and Deny, and Done" width="360"></td>
+    <td valign="top"><img src="assets/demo/macos-stack.png" alt="macOS notifications from Claude Notify, one per group: Done with a Reply field, Info, Limit, Error, Paused, Needs you with Allow and Deny in its Options menu, and Done" width="360"></td>
     <td valign="top"><img src="assets/demo/windows-stack.png" alt="Windows toasts from Claude Notify, one per group: Done with a Reply field, Info, Limit, Error, Paused, Needs you with Allow and Deny, and Done" width="360"></td>
   </tr>
 </table>
@@ -54,7 +54,7 @@ Every event falls into one of **six groups**, and each group has its own sound:
 
 Two notifications have controls.
 
-- **Allow / Deny.** When Claude asks to use a tool, the notification shows **Allow** and **Deny**. If you don't answer within **20 seconds** it goes away and the usual prompt appears in the terminal. If the terminal is already the app in front, you get the prompt straight away and no notification.
+- **Allow / Deny.** When Claude asks to use a tool, the notification shows **Allow** and **Deny** (on macOS they are in the **Options** menu at the bottom right). If you don't answer within **20 seconds** it goes away and the usual prompt appears in the terminal. If the terminal is already the app in front, you get the prompt straight away and no notification.
 - **Reply.** When Claude finishes, the notification has a **Reply** field. What you type goes to that session and Claude picks it up immediately. If you go back and type in the terminal instead, the notification is withdrawn.
 
 > [!NOTE]
