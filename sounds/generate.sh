@@ -1,6 +1,6 @@
 #!/bin/bash
 # Regenerate notification sounds with ElevenLabs (needs an authenticated `elevenlabs` CLI)
-# into sounds/mp3/<group>.mp3, then install them with install.sh.
+# into sounds/mp3/<group>.mp3. Then run `make dist` and bump the plugin version.
 # Usage: generate.sh [group ...]   (default: all groups)
 set -euo pipefail
 
@@ -28,5 +28,3 @@ for g in "${groups[@]}"; do
   elevenlabs text-to-sound-effects convert --json "$body" -o "$HERE/mp3/$g.mp3" -q
   echo "generated sounds/mp3/$g.mp3"
 done
-
-"$HERE/install.sh" "${groups[@]}"
