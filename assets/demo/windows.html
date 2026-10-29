@@ -1,0 +1,117 @@
+<!doctype html>
+<!-- Mockup for the README. Render: Chrome --headless=new --hide-scrollbars --force-device-scale-factor=2 --window-size=401,940 --screenshot=windows-stack.png windows.html -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Windows notifications</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&display=block">
+<style>
+  :root {
+    --card: rgba(32, 36, 44, 0.92);
+    --card-border: rgba(255, 255, 255, 0.07);
+    --text: #ffffff;
+    --body: #cfd3da;
+    --dim: #b7bcc6;
+    --field: #2b3138;
+    --field-line: #a3a8b0;
+  }
+  html, body { margin: 0; }
+  body { min-height: 100vh;
+    width: 401px;
+    background: radial-gradient(120% 80% at 0% 100%, #0d2a63 0%, #04123a 45%, #000523 100%);
+    font-family: "Segoe UI Variable Text", "Segoe UI", "Open Sans", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .stack { display: flex; flex-direction: column; gap: 8px; padding: 12px; }
+  .toast {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    padding: 12px 14px 14px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  }
+  .head { display: flex; align-items: center; gap: 8px; height: 20px; margin-bottom: 10px; }
+  .head img { width: 16px; height: 16px; border-radius: 3px; }
+  .app { font-size: 12px; color: var(--dim); flex: 1; }
+  .ctl { display: flex; align-items: center; gap: 18px; color: var(--dim); }
+  .more { font-size: 13px; letter-spacing: 1px; line-height: 1; }
+  .title { font-size: 14px; font-weight: 600; color: var(--text); line-height: 20px; }
+  .body { font-size: 14px; color: var(--body); line-height: 20px; }
+  .reply { display: flex; gap: 8px; margin-top: 14px; }
+  .field {
+    flex: 1; height: 32px; box-sizing: border-box; padding: 0 11px;
+    display: flex; align-items: center;
+    background: var(--field); border-radius: 4px; border-bottom: 1px solid var(--field-line);
+    font-size: 14px; color: var(--body);
+  }
+  .send {
+    height: 32px; padding: 0 14px; box-sizing: border-box;
+    display: flex; align-items: center;
+    background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 4px;
+    font-size: 14px; color: #7d828b;
+  }
+  .actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 14px; }
+  .btn {
+    height: 32px; display: flex; align-items: center; justify-content: center;
+    background: rgba(255, 255, 255, 0.07); border: 1px solid rgba(255, 255, 255, 0.07); border-radius: 4px;
+    font-size: 14px; color: var(--text);
+  }
+</style>
+</head>
+<body>
+<div class="stack">
+
+  <div class="toast">
+    <div class="head"><img src="../icon/app-icon.png" alt=""><span class="app">Claude Notify</span>
+      <span class="ctl"><span class="more">···</span><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 1l8 8M9 1l-8 8" stroke="currentColor" stroke-width="1.1"/></svg></span></div>
+    <div class="title">Landing page redesign · Done</div>
+    <div class="body">The hero section now uses the new illustration. Want me to tune the colors for dark mode too?</div>
+    <div class="reply"><div class="field">Reply</div><div class="send">Send</div></div>
+  </div>
+
+  <div class="toast">
+    <div class="head"><img src="../icon/app-icon.png" alt=""><span class="app">Claude Notify</span>
+      <span class="ctl"><span class="more">···</span><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 1l8 8M9 1l-8 8" stroke="currentColor" stroke-width="1.1"/></svg></span></div>
+    <div class="title">Onboarding docs · Info</div>
+    <div class="body">Signed in</div>
+  </div>
+
+  <div class="toast">
+    <div class="head"><img src="../icon/app-icon.png" alt=""><span class="app">Claude Notify</span>
+      <span class="ctl"><span class="more">···</span><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 1l8 8M9 1l-8 8" stroke="currentColor" stroke-width="1.1"/></svg></span></div>
+    <div class="title">Weekly report · Limit</div>
+    <div class="body">Usage limit reset, work resumed</div>
+  </div>
+
+  <div class="toast">
+    <div class="head"><img src="../icon/app-icon.png" alt=""><span class="app">Claude Notify</span>
+      <span class="ctl"><span class="more">···</span><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 1l8 8M9 1l-8 8" stroke="currentColor" stroke-width="1.1"/></svg></span></div>
+    <div class="title">Fix flaky CI · Error</div>
+    <div class="body">Server overloaded. The API is busy, retry in a few minutes.</div>
+  </div>
+
+  <div class="toast">
+    <div class="head"><img src="../icon/app-icon.png" alt=""><span class="app">Claude Notify</span>
+      <span class="ctl"><span class="more">···</span><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 1l8 8M9 1l-8 8" stroke="currentColor" stroke-width="1.1"/></svg></span></div>
+    <div class="title">Database migration · Paused</div>
+    <div class="body">The migration ran on staging. I am waiting for the build to finish before checking the logs.</div>
+  </div>
+
+  <div class="toast">
+    <div class="head"><img src="../icon/app-icon.png" alt=""><span class="app">Claude Notify</span>
+      <span class="ctl"><span class="more">···</span><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 1l8 8M9 1l-8 8" stroke="currentColor" stroke-width="1.1"/></svg></span></div>
+    <div class="title">Refactor auth module · Needs you</div>
+    <div class="body">Bash: npm test -- --coverage</div>
+    <div class="actions"><div class="btn">Allow</div><div class="btn">Deny</div></div>
+  </div>
+
+  <div class="toast">
+    <div class="head"><img src="../icon/app-icon.png" alt=""><span class="app">Claude Notify</span>
+      <span class="ctl"><span class="more">···</span><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 1l8 8M9 1l-8 8" stroke="currentColor" stroke-width="1.1"/></svg></span></div>
+    <div class="title">Refactor auth module · Done</div>
+    <div class="body">I moved the token check into the middleware and added two tests for expired tokens. All 48 tests pass.</div>
+  </div>
+
+</div>
+</body>
+</html>

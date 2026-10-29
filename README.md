@@ -26,8 +26,8 @@ Claude Code works for minutes at a time, and you probably don't sit and watch it
     <th>Windows</th>
   </tr>
   <tr>
-    <td valign="top"><img src="assets/demo/macos-stack.png" alt="macOS Notification Center with one Claude Notify notification per group: Done with a Reply field, Info, Limit, Error, Paused, Needs you and Done" width="360"></td>
-    <td valign="top"><img src="assets/demo/windows-stack.png" alt="Windows toasts from Claude Notify, one per group: Done with a Reply field, Info, Limit, Error, Paused, Needs you and Done" width="360"></td>
+    <td valign="top"><img src="assets/demo/macos-stack.png" alt="macOS notifications from Claude Notify, one per group: Done with a Reply field, Info, Limit, Error, Paused, Needs you with Allow and Deny, and Done" width="360"></td>
+    <td valign="top"><img src="assets/demo/windows-stack.png" alt="Windows toasts from Claude Notify, one per group: Done with a Reply field, Info, Limit, Error, Paused, Needs you with Allow and Deny, and Done" width="360"></td>
   </tr>
 </table>
 
