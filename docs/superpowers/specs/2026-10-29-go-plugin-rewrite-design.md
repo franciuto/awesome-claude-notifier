@@ -1,6 +1,6 @@
 # Go rewrite and Claude Code plugin packaging
 
-Status: draft, waiting for approval
+Status: draft, builder check done, waiting for approval
 Branch: `feat/go-rewrite` (from `dev`)
 
 ## Why
@@ -112,7 +112,7 @@ Hook commands use shell form:
 ### macOS helper app
 
 - `macos/Claude Notify.app` is committed: a universal build of `main.swift`, ad-hoc signed by `build.sh`, with the six sounds converted to `.aiff` in `Contents/Resources`.
-- The app is not launched from the plugin cache. `${CLAUDE_PLUGIN_ROOT}` changes on every update, and the helper relies on LaunchServices relaunching the registered copy to deliver clicks. Before posting, the Go binary copies the bundled app to `~/Applications/Claude Notify.app` with `ditto` (keeps the signature) when the installed `CFBundleVersion` differs or the app is missing. This is the same location as today.
+- The app is not launched from the plugin cache. `${CLAUDE_PLUGIN_ROOT}` changes on every update, and the helper relies on LaunchServices relaunching the registered copy to deliver clicks. Before posting, the Go binary copies the bundled app to `~/Applications/Claude Notify.app` with `ditto` (keeps the signature) when the installed `CFBundleVersion` differs or the app is missing. This is the same location as today. The copy is skipped when the installed app has a different `CFBundleIdentifier`: the user changed it on purpose (for example to recover from a denied permission) and it must not be overwritten. *(Builder's call.)*
 - `build.sh` writes into `macos/` instead of `~/Applications`, builds for both architectures and merges them with `lipo`. `CFBundleVersion` becomes deterministic: it is derived from the plugin version instead of the current date. It still changes on every release, so the icon cache is still refreshed.
 - Sounds: if `UNNotificationSound(named:)` finds the `.aiff` inside the bundle (spike S3), nothing else is needed. If not, the same ensure step copies them to `~/Library/Sounds`, as `install.sh` does today.
 
@@ -134,7 +134,7 @@ One prompt, the same text for every OS. It tells the agent to:
 4. On macOS, tell the user to allow notifications for "Claude Notify" and set the style to Alerts. On Linux, check that `notify-send` exists and say how to install it if not. On Windows, check for Git for Windows (depends on spike S1).
 5. Send a test notification by piping a sample `Stop` event into the binary.
 
-The README shows the two commands first, then the manual equivalents of steps 2–4 for people who don't use an agent.
+The README shows the two commands first, then the manual equivalents of steps 2–4 for people who don't use an agent. Right above the two commands, a short "Upgrading from the pip version" note says to remove the old hooks first, or notifications arrive twice. *(Builder's call; an automatic duplicate check stays in "After the port".)*
 
 ### Versioning and release
 
@@ -151,13 +151,14 @@ The README shows the two commands first, then the manual equivalents of steps 2�
 - Reproducible builds: `CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags="-s -w"`.
 - `Makefile` targets: `test` (`go vet`, `go test ./...`), `dist` (all Go binaries, macOS universal binary via `lipo`, `.app` via `build.sh`), `fmt`.
 - `.gitattributes`: `bin/claude-notify text eol=lf` (Git for Windows defaults to `autocrlf=true`, and a CRLF shebang breaks the hook under Git Bash); the binaries under `bin/*/` and everything under `macos/` marked `binary -diff`.
-- GitHub Actions (`.github/workflows/ci.yml`, tests only, no publishing): `gofmt` check, `go vet`, `go test` on ubuntu, macos and windows; `swiftc -typecheck macos-helper/main.swift` on macos; rebuild the Go binaries and fail if they differ from the committed ones (`git diff --exit-code bin/`). The `.app` is not checked for reproducibility.
+- GitHub Actions (`.github/workflows/ci.yml`, tests only, no publishing): `gofmt` check, `go vet`, `go test` on ubuntu, macos and windows; `swiftc -typecheck macos-helper/main.swift` on macos; rebuild the Go binaries and fail if they differ from the committed ones (`git diff --exit-code bin/`). This last check runs only on pull requests into `master` and on commits that change `version` in `plugin.json`, since binaries are rebuilt only for releases; on feature branches `bin/` may be stale or missing. The `.app` is not checked for reproducibility. *(Builder's call.)*
 
 ### Tests
 
 - Port every case in `tests/test_hook.py` to Go: permission answered / unanswered, reply exits 2 with text, no reply exits 0, helper failure falls back to plain, usage error is exit 1, answer file reading, summarize.
 - Add: dispatcher picks the right binary per `uname` (shell test run in CI on ubuntu and macos), `CLAUDE_PLUGIN_ROOT` asset lookup, desktop app gets no buttons, stale waiter pid is not killed.
 - Unit tests never post real notifications.
+- Before the release, a manual check on a real machine for macOS, Windows x64 and Windows ARM64, all installed through `/plugin install`: plain notification with its sound, Allow, Deny, Reply waking the session, a pending Reply withdrawn by typing in the terminal, a click on the body bringing the terminal forward. Linux gets the plain-notification check only.
 
 ### Docs to update
 
@@ -169,12 +170,12 @@ Each spike is throwaway code, run on a real machine, with a pass criterion and a
 
 | # | Question | Pass | Fallback |
 |---|---|---|---|
-| S1 | Windows: does the shell-form command reach the binary under Git Bash with a backslash `CLAUDE_PLUGIN_ROOT`? What happens under PowerShell-only? | Hook runs under Git Bash; under PowerShell it fails with an exit code other than 2 | Git for Windows becomes a stated prerequisite on Windows, checked by the agent prompt |
-| S2 | macOS: a `.app` committed to the repo, installed through a real `/plugin install`, copied to `~/Applications` with `ditto`: does it launch via `open -n -W -a` without Gatekeeper, get notification permission, and route Allow/Deny and Reply back? | All three work | Copy with `cp -R` and re-run `codesign --force --sign -` locally; if that fails, stop and revisit |
+| S1 | Windows: does the shell-form command reach the binary under Git Bash with a backslash `CLAUDE_PLUGIN_ROOT`? What happens under PowerShell-only? Under Git Bash `exec` of an `.exe` does not replace the shell: when Claude Code kills the hook, is the Go waiter (and its toast) left behind? | Hook runs under Git Bash; under PowerShell it fails with an exit code other than 2; a killed hook takes the toast with it | Git for Windows becomes a stated prerequisite on Windows, checked by the agent prompt |
+| S2 | macOS: a `.app` committed to the repo, installed through a real `/plugin install`, copied to `~/Applications` with `ditto`: does it launch via `open -n -W -a` without Gatekeeper, get notification permission, and route Allow/Deny and Reply back? | All three work | Copy with `cp -R` and re-run `codesign --force --sign -` locally. If that fails too, features win over simplicity (owner's decision): the `.app` is built on the user's Mac from `macos-helper/` (needs the Xcode command line tools), triggered by the first hook run or a documented command |
 | S3 | macOS: is an `.aiff` in `Contents/Resources` found by `UNNotificationSound(named:)`? | Custom sound plays | Copy sounds to `~/Library/Sounds` in the ensure step |
-| S4 | A plugin `Stop` hook with `asyncRewake`, going through the `sh` dispatcher's `exec`, exiting 2: does it wake the session with the stderr text? | Session wakes | Investigate before going further; Reply depends on it |
+| S4 | A plugin `Stop` hook with `asyncRewake`, going through the `sh` dispatcher's `exec`, exiting 2: does it wake the session with the stderr text? | Session wakes | Features win over simplicity (owner's decision): the README and agent prompt add the `Stop` Reply hook to the user's `settings.json` by hand, outside the plugin |
 
-S1 needs a Windows machine. If none is available, S1 is recorded as untested and the Windows prerequisite is stated conservatively (Git for Windows required).
+The owner has Windows machines on both x64 and ARM64. S1 runs on both. Pushing `feat/go-rewrite` (binaries included) to the public `origin` is allowed, so S2 and S4 use a real `/plugin install` from that branch.
 
 ## After the port (separate changes, not in this design)
 
