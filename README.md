@@ -4,6 +4,7 @@
 
 <p align="center">
   <a href="#onboard-your-agent"><img src="https://img.shields.io/badge/Onboard_your_agent-copy_the_prompt-D97757?style=for-the-badge&logo=claude&logoColor=white" alt="Onboard your agent: copy the install prompt"></a>
+  <a href="https://github.com/franciuto/awesome-claude-notifier/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/franciuto/awesome-claude-notifier/ci.yml?style=for-the-badge&label=CI" alt="CI status"></a>
 </p>
 
 # awesome-claude-notifier
