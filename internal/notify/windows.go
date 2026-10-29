@@ -3,9 +3,7 @@
 package notify
 
 import (
-	"crypto/rand"
 	"encoding/json"
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -75,11 +73,4 @@ func (windows) Ask(r Request, actions string, wait time.Duration) *Answer {
 		err = <-done
 	}
 	return readAnswer(answerFile, err == nil)
-}
-
-func newID() string {
-	b := make([]byte, 16)
-	rand.Read(b)
-	b[6], b[8] = b[6]&0x0f|0x40, b[8]&0x3f|0x80
-	return fmt.Sprintf("%x-%x-%x-%x-%x", b[:4], b[4:6], b[6:8], b[8:10], b[10:])
 }

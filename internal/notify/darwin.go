@@ -4,7 +4,6 @@ package notify
 
 import (
 	"context"
-	"crypto/rand"
 	"fmt"
 	"os"
 	"os/exec"
@@ -115,10 +114,7 @@ func (darwin) Ask(r Request, actions string, wait time.Duration) *Answer {
 		return nil
 	}
 	secs := int(wait / time.Second)
-	b := make([]byte, 16)
-	rand.Read(b)
-	b[6], b[8] = b[6]&0x0f|0x40, b[8]&0x3f|0x80
-	id := fmt.Sprintf("%x-%x-%x-%x-%x", b[:4], b[4:6], b[6:8], b[8:10], b[10:])
+	id := newID()
 	dir := filepath.Join(CacheDir(), "responses")
 	answerFile, pidFile := filepath.Join(dir, id+".json"), filepath.Join(dir, id+".pid")
 
