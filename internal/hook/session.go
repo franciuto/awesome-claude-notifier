@@ -7,10 +7,18 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/franciuto/awesome-claude-notifier/internal/notify"
 )
 
 // Handler turns hook events into notifications.
 type Handler struct {
+	Notifier             notify.Notifier
+	Getenv               func(string) string
+	UserAtTerminal       func() bool // true when the terminal is in front: the normal dialog is quicker
+	BringTerminalForward func()
+	WaitersDir           string // pid files, one pending Reply per session
+
 	// DesktopSessionsDirs are where the Claude desktop app keeps its session list.
 	DesktopSessionsDirs []string
 }

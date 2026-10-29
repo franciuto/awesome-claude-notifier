@@ -8,6 +8,8 @@ import (
 	"io"
 	"os"
 	"time"
+
+	"github.com/franciuto/awesome-claude-notifier/internal/hook"
 )
 
 // Hook is what the hook command dispatches to; *hook.Handler implements it.
@@ -97,17 +99,16 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer, h Hook) (code
 	return 0
 }
 
-// noopHook sends nothing; Task 3 replaces it with hook.NewHandler().
-type noopHook struct{}
-
-func (noopHook) Permission(map[string]any) map[string]any { return nil }
-func (noopHook) CancelReplyWait(string)                   {}
-func (noopHook) InDesktopApp() bool                       { return false }
-func (noopHook) NotifyAndWaitReply(string, map[string]any, time.Duration) string {
-	return ""
-}
-func (noopHook) Process(string, map[string]any) bool { return false }
-
 func main() {
-	os.Exit(run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr, noopHook{}))
+	// The handler is built outside run's recover: a panic there must not exit 2 (Reply).
+	code := 1
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", r)
+			}
+		}()
+		code = run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr, hook.NewHandler())
+	}()
+	os.Exit(code)
 }
