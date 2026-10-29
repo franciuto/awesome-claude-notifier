@@ -5,6 +5,7 @@ package notify
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -25,6 +26,11 @@ func installedApp() string {
 	return filepath.Join(home, "Applications", "Claude Notify.app")
 }
 
+func soundsDir() string {
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, "Library", "Sounds")
+}
+
 func bundledApp() string { return filepath.Join(PluginRoot(), "macos", "Claude Notify.app") }
 
 func helperBinary(app string) string {
@@ -39,46 +45,103 @@ func plistValue(app, key string) (string, error) {
 
 // ensureApp copies the bundled helper app to installed when it is missing or an
 // older build of the same app. A different bundle id is the user's own app: left alone.
-func ensureApp(bundled, installed string) error {
+// The bundled sounds go to soundsDir: UNNotificationSound does not find them inside the app.
+func ensureApp(bundled, installed, soundsDir string) error {
 	if _, err := os.Stat(bundled); err != nil {
 		return nil // dev checkout without a build: use whatever is installed
 	}
+	copied, err := syncApp(bundled, installed)
+	if err != nil {
+		return err
+	}
+	return installSounds(bundled, soundsDir, copied)
+}
+
+// syncApp reports whether it copied the app.
+func syncApp(bundled, installed string) (bool, error) {
 	if _, err := os.Stat(installed); err == nil {
 		id, err := plistValue(installed, "CFBundleIdentifier")
 		if err != nil {
-			return err
+			return false, err
 		}
 		bundledID, err := plistValue(bundled, "CFBundleIdentifier")
 		if err != nil {
-			return err
+			return false, err
 		}
 		if id != bundledID {
-			return nil
+			return false, nil
 		}
 		version, err := plistValue(installed, "CFBundleVersion")
 		if err != nil {
-			return err
+			return false, err
 		}
 		bundledVersion, err := plistValue(bundled, "CFBundleVersion")
 		if err != nil {
-			return err
+			return false, err
 		}
 		if version == bundledVersion {
-			return nil
+			return false, nil
 		}
 	}
 	if err := os.MkdirAll(filepath.Dir(installed), 0o755); err != nil {
-		return err
+		return false, err
 	}
 	if out, err := exec.Command("ditto", bundled, installed).CombinedOutput(); err != nil {
-		return fmt.Errorf("ditto: %v: %s", err, out)
+		return false, fmt.Errorf("ditto: %v: %s", err, out)
+	}
+	return true, nil
+}
+
+// installSounds copies the bundled claude-notify-*.aiff to soundsDir: all of them
+// after an app update, otherwise only the missing ones.
+func installSounds(bundled, soundsDir string, replace bool) error {
+	files, err := filepath.Glob(filepath.Join(bundled, "Contents", "Resources", "claude-notify-*.aiff"))
+	if err != nil || len(files) == 0 {
+		return err
+	}
+	if err := os.MkdirAll(soundsDir, 0o755); err != nil {
+		return err
+	}
+	for _, src := range files {
+		dst := filepath.Join(soundsDir, filepath.Base(src))
+		if _, err := os.Stat(dst); err == nil && !replace {
+			continue
+		}
+		if err := copyAtomic(src, dst); err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
+// copyAtomic writes to a temp file next to dst, then renames: a concurrent hook never sees half a file.
+func copyAtomic(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	tmp, err := os.CreateTemp(filepath.Dir(dst), ".claude-notify-*.tmp")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmp.Name()) // no-op after a successful rename
+	if _, err := io.Copy(tmp, in); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	if err := os.Chmod(tmp.Name(), 0o644); err != nil {
+		return err
+	}
+	return os.Rename(tmp.Name(), dst)
+}
+
 func prepare() string {
 	app := installedApp()
-	if err := ensureApp(bundledApp(), app); err != nil {
+	if err := ensureApp(bundledApp(), app, soundsDir()); err != nil {
 		fmt.Fprintln(os.Stderr, "claude-notify: installing the helper app:", err)
 	}
 	return app
