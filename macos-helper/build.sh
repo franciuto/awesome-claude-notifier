@@ -1,11 +1,14 @@
 #!/bin/bash
-# Build "Claude Notify.app" into ~/Applications with the bell icon.
+# Build the universal "Claude Notify.app" into <repo>/macos with the bell icon and the notification sounds.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
-ICON_PNG="$HERE/../assets/icon/app-icon.png"
-APP="$HOME/Applications/Claude Notify.app"
+ROOT="$HERE/.."
+ICON_PNG="$ROOT/assets/icon/app-icon.png"
+APP="$ROOT/macos/Claude Notify.app"
 BUILD="$(mktemp -d)"
+trap 'rm -rf "$BUILD"' EXIT
+VERSION="$(plutil -extract version raw -o - "$ROOT/.claude-plugin/plugin.json")"
 
 mkdir -p "$BUILD/AppIcon.iconset"
 for size in 16 32 128 256 512; do
@@ -18,10 +21,19 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BUILD/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
 cp "$HERE/Info.plist" "$APP/Contents/Info.plist"
-# New build number each time, so macOS drops its cached icon for the old one
-plutil -replace CFBundleVersion -string "$(date +%Y%m%d%H%M%S)" "$APP/Contents/Info.plist"
-swiftc -O "$HERE/main.swift" -o "$APP/Contents/MacOS/claude-notify-helper"
+# The plugin version is the app version; a new version makes ensureApp reinstall it and macOS drop its cached icon
+plutil -replace CFBundleVersion -string "$VERSION" "$APP/Contents/Info.plist"
+plutil -replace CFBundleShortVersionString -string "$VERSION" "$APP/Contents/Info.plist"
+
+for arch in arm64 x86_64; do
+  swiftc -O -target "$arch-apple-macos13" "$HERE/main.swift" -o "$BUILD/helper-$arch"
+done
+lipo -create "$BUILD/helper-arm64" "$BUILD/helper-x86_64" -output "$APP/Contents/MacOS/claude-notify-helper"
+
+for mp3 in "$ROOT"/sounds/mp3/*.mp3; do
+  slug="$(basename "$mp3" .mp3)"
+  afconvert -f AIFF -d BEI16 "$mp3" "$APP/Contents/Resources/claude-notify-$slug.aiff"
+done
 codesign --force --sign - "$APP"
 
-rm -rf "$BUILD"
 echo "$APP"
