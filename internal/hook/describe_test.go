@@ -79,6 +79,7 @@ func TestDescribe(t *testing.T) {
 		{"notification unknown type with message", "Notification", m{"notification_type": "weird", "message": "Hello **there**"}, Info, "Hello there"},
 		{"notification unknown type no message", "Notification", m{"notification_type": "weird"}, Info, "Notification"},
 		{"notification no type", "Notification", m{}, Info, "Notification"},
+		{"notification known type ignores message", "Notification", m{"notification_type": "auth_success", "message": "Logged in as x"}, Info, "Signed in"},
 		{"stopfailure known with details", "StopFailure", m{"error": "rate_limit", "error_details": "Try later"}, Error, "Rate limit reached. Try later"},
 		{"stopfailure falls back to last message", "StopFailure", m{"error": "overloaded", "last_assistant_message": "Oops"}, Error, "Server overloaded. Oops"},
 		{"stopfailure unknown error", "StopFailure", m{"error": "boom"}, Error, "boom"},
@@ -95,7 +96,7 @@ func TestDescribe(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			group, summary := Describe(tt.event, tt.data)
+			group, summary := Describe(tt.event, tt.data, "en")
 			if group != tt.wantGroup || summary != tt.wantSummary {
 				t.Fatalf("got (%q, %q), want (%q, %q)", group, summary, tt.wantGroup, tt.wantSummary)
 			}

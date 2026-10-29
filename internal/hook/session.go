@@ -21,10 +21,13 @@ type Handler struct {
 
 	// DesktopSessionsDirs are where the Claude desktop app keeps its session list.
 	DesktopSessionsDirs []string
+
+	// SettingsPath is Claude Code's settings.json, read for the "language" setting.
+	SettingsPath string
 }
 
 // SessionName is the name shown in Claude's session list: the custom title, then
-// the auto-generated one, then the desktop app title, then the folder name.
+// the auto-generated one, then the desktop app title, then the folder name, then "".
 func (h *Handler) SessionName(data map[string]any) string {
 	title := titleFromTranscript(str(data, "transcript_path", ""))
 	if title == "" {
@@ -37,7 +40,7 @@ func (h *Handler) SessionName(data map[string]any) string {
 			}
 		}
 	}
-	return orElse(title, "Session")
+	return title
 }
 
 // titleFromTranscript reads the latest custom-title / ai-title record.
@@ -45,12 +48,7 @@ func titleFromTranscript(path string) string {
 	if path == "" {
 		return ""
 	}
-	if rest, ok := strings.CutPrefix(path, "~/"); ok {
-		if home, err := os.UserHomeDir(); err == nil {
-			path = filepath.Join(home, rest)
-		}
-	}
-	f, err := os.Open(path)
+	f, err := os.Open(expandHome(path))
 	if err != nil {
 		return ""
 	}
@@ -107,4 +105,14 @@ func (h *Handler) titleFromDesktopApp(sessionID string) string {
 		}
 	}
 	return ""
+}
+
+// expandHome resolves a leading "~/" in a transcript path.
+func expandHome(path string) string {
+	if rest, ok := strings.CutPrefix(path, "~/"); ok {
+		if home, err := os.UserHomeDir(); err == nil {
+			return filepath.Join(home, rest)
+		}
+	}
+	return path
 }

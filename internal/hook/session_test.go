@@ -62,10 +62,10 @@ func TestSessionNameFallbacks(t *testing.T) {
 	if got := h.SessionName(map[string]any{"cwd": "/tmp/demo", "transcript_path": "/nonexistent/t.jsonl"}); got != "demo" {
 		t.Fatalf("got %q", got)
 	}
-	if got := h.SessionName(map[string]any{}); got != "Session" {
+	if got := h.SessionName(map[string]any{}); got != "" {
 		t.Fatalf("got %q", got)
 	}
-	if got := h.SessionName(map[string]any{"cwd": "/"}); got != "Session" {
+	if got := h.SessionName(map[string]any{"cwd": "/"}); got != "" {
 		t.Fatalf("root cwd: got %q", got)
 	}
 }

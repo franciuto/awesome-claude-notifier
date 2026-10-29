@@ -2,6 +2,7 @@
 package hook
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 	"unicode/utf8"
@@ -30,31 +31,18 @@ var groupSlugs = map[string]string{
 // notifiers add the claude-notify- prefix and the file extension.
 func SoundSlug(group string) string { return groupSlugs[group] }
 
-type notificationType struct{ group, text string }
-
-// Per Notification "notification_type": group and fallback text.
-var notificationTypes = map[string]notificationType{
-	"permission_prompt":          {NeedsYou, "Asking for permission"},
-	"idle_prompt":                {NeedsYou, "Waiting for your reply"},
-	"elicitation_dialog":         {NeedsYou, "An MCP server is asking for input"},
-	"elicitation_url_dialog":     {NeedsYou, "An MCP server wants you to open a link"},
-	"agent_needs_input":          {NeedsYou, "A background agent is waiting for you"},
-	"agent_completed":            {Done, "A background agent finished"},
-	"auth_success":               {Info, "Signed in"},
-	"quota_auto_resume_fired":    {Limit, "Usage limit reset, work resumed"},
-	"quota_auto_resume_stale":    {NeedsYou, "Usage limit reset, press Enter to resume"},
-	"quota_auto_resume_disabled": {Limit, "Stopped waiting for the usage limit reset"},
-}
-
-// Per StopFailure "error".
-var stopFailureTexts = map[string]string{
-	"rate_limit":            "Rate limit reached",
-	"overloaded":            "Server overloaded",
-	"authentication_failed": "Authentication failed",
-	"billing_error":         "Billing problem",
-	"server_error":          "Server error",
-	"max_output_tokens":     "Response too long, cut off",
-	"model_not_found":       "Model not found",
+// Group per Notification "notification_type"; the texts are in i18n.go.
+var notificationGroups = map[string]string{
+	"permission_prompt":          NeedsYou,
+	"idle_prompt":                NeedsYou,
+	"elicitation_dialog":         NeedsYou,
+	"elicitation_url_dialog":     NeedsYou,
+	"agent_needs_input":          NeedsYou,
+	"agent_completed":            Done,
+	"auth_success":               Info,
+	"quota_auto_resume_fired":    Limit,
+	"quota_auto_resume_stale":    NeedsYou,
+	"quota_auto_resume_disabled": Limit,
 }
 
 // SummaryMaxChars is roughly two lines of a macOS banner.
@@ -141,9 +129,12 @@ func orElse(s, def string) string {
 	return s
 }
 
-// Describe returns the group for the title and a short summary for the body.
-func Describe(event string, data map[string]any) (group, summary string) {
+// Describe returns the group for the title and a short summary for the body,
+// with its fixed sentences in lang.
+func Describe(event string, data map[string]any, lang string) (group, summary string) {
+	t := textsFor(lang)
 	last := str(data, "last_assistant_message", "")
+	tool := str(data, "tool_name", t.aTool)
 
 	switch event {
 	case "Stop":
@@ -151,45 +142,40 @@ func Describe(event string, data map[string]any) (group, summary string) {
 		if truthy(data["background_tasks"]) {
 			group = Paused
 		}
-		return group, orElse(Summarize(last, SummaryMaxChars), "Finished responding")
+		return group, orElse(Summarize(last, SummaryMaxChars), t.finished)
 
 	case "Notification":
-		nt, ok := notificationTypes[str(data, "notification_type", "")]
-		if !ok {
-			nt = notificationType{Info, "Notification"}
-		}
+		kind := str(data, "notification_type", "")
+		group = orElse(notificationGroups[kind], Info)
 		message := str(data, "message", "")
 		if m := toolRe.FindStringSubmatch(message); m != nil {
-			return nt.group, "Asking to use " + m[1]
+			return group, fmt.Sprintf(t.askingToUse, m[1])
 		}
-		if message != "" && nt.group == Info {
-			return nt.group, Summarize(message, SummaryMaxChars)
+		if text, ok := t.notificationTypes[kind]; ok {
+			return group, text
 		}
-		return nt.group, nt.text
+		return group, orElse(Summarize(message, SummaryMaxChars), t.notification)
 
 	case "StopFailure":
 		errName := str(data, "error", "unknown")
 		detail := orElse(str(data, "error_details", ""), last)
-		text, ok := stopFailureTexts[errName]
-		if !ok {
-			text = errName
-		}
+		text := orElse(t.stopFailures[errName], errName)
 		if detail != "" {
 			text += ". " + detail
 		}
 		return Error, Summarize(text, SummaryMaxChars)
 
 	case "PermissionDenied":
-		return Error, Summarize("Auto mode blocked "+str(data, "tool_name", "a tool")+". "+str(data, "reason", ""), SummaryMaxChars)
+		return Error, Summarize(fmt.Sprintf(t.autoModeBlocked, tool, str(data, "reason", "")), SummaryMaxChars)
 
 	case "PermissionRequest":
-		return NeedsYou, "Asking to use " + str(data, "tool_name", "a tool")
+		return NeedsYou, fmt.Sprintf(t.askingToUse, tool)
 
 	case "SubagentStop":
-		return Done, orElse(Summarize(last, SummaryMaxChars), "A subagent finished")
+		return Done, orElse(Summarize(last, SummaryMaxChars), t.subagentFinished)
 
 	case "TaskCompleted":
-		return Done, Summarize(orElse(str(data, "task_subject", ""), "Task completed"), SummaryMaxChars)
+		return Done, Summarize(orElse(str(data, "task_subject", ""), t.taskCompleted), SummaryMaxChars)
 	}
 	return Info, event
 }

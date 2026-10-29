@@ -1,6 +1,7 @@
 package hook
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -23,7 +24,17 @@ func NewHandler() *Handler {
 		BringTerminalForward: bringTerminalForward,
 		WaitersDir:           filepath.Join(notify.CacheDir(), "waiters"),
 		DesktopSessionsDirs:  desktopSessionsDirs(),
+		SettingsPath:         settingsPath(),
 	}
+}
+
+// settingsPath is the user's Claude Code settings file ("" without a home folder).
+func settingsPath() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(home, ".claude", "settings.json")
 }
 
 // InDesktopApp reports whether the Claude desktop app runs this session: it has
@@ -32,15 +43,22 @@ func (h *Handler) InDesktopApp() bool {
 	return h.Getenv("CLAUDE_CODE_ENTRYPOINT") == "claude-desktop"
 }
 
-func (h *Handler) title(data map[string]any, group string) string {
-	return h.SessionName(data) + " · " + group
+// language is the chat language of this session (see detectLanguage).
+func (h *Handler) language(data map[string]any) string {
+	return detectLanguage(data, h.SettingsPath)
+}
+
+// title is "<session name> · <group>"; only the fallback session word follows the chat language.
+func (h *Handler) title(data map[string]any, group, lang string) string {
+	return orElse(h.SessionName(data), textsFor(lang).session) + " · " + group
 }
 
 // Process sends the plain notification for an event.
 func (h *Handler) Process(event string, data map[string]any) bool {
-	group, summary := Describe(event, data)
+	lang := h.language(data)
+	group, summary := Describe(event, data, lang)
 	return h.Notifier.Send(notify.Request{
-		Title: h.title(data, group), Body: summary, Sound: SoundSlug(group), Urgent: group == Error,
+		Title: h.title(data, group, lang), Body: summary, Sound: SoundSlug(group), Urgent: group == Error,
 	})
 }
 
@@ -59,12 +77,13 @@ func (h *Handler) Permission(data map[string]any) map[string]any {
 			break
 		}
 	}
-	body := "Asking to use " + tool
+	lang := h.language(data)
+	body := fmt.Sprintf(textsFor(lang).askingToUse, tool)
 	if detail != "" {
 		body = tool + ": " + detail
 	}
 	answer := h.Notifier.Ask(notify.Request{
-		Title: h.title(data, NeedsYou),
+		Title: h.title(data, NeedsYou, lang),
 		Body:  Summarize(body, SummaryMaxChars),
 		Sound: SoundSlug(NeedsYou),
 	}, "permission", PermissionWait)
@@ -98,9 +117,10 @@ func (h *Handler) NotifyAndWaitReply(event string, data map[string]any, wait tim
 		_ = os.WriteFile(pidFile, []byte(pid), 0o644)
 	}
 
-	group, summary := Describe(event, data)
+	lang := h.language(data)
+	group, summary := Describe(event, data, lang)
 	answer := h.askReply(notify.Request{
-		Title: h.title(data, group), Body: summary, Sound: SoundSlug(group),
+		Title: h.title(data, group, lang), Body: summary, Sound: SoundSlug(group),
 	}, wait, pidFile, pid)
 
 	if answer == nil {
