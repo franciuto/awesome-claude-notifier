@@ -19,7 +19,7 @@ Two decisions came out of the discussion with the owner:
 1. Install with two commands inside Claude Code, the same on every OS:
    ```
    /plugin marketplace add franciuto/awesome-claude-notifier
-   /plugin install claude-notify@awesome-claude-notifier
+   /plugin install notifier@awesome-claude-notifier
    ```
    No clone, no `pip`, no build, no Xcode tools, no sound installer, no `settings.json` editing for hooks.
 2. Same features as today on macOS and Windows: session titles, groups, per-group sounds, Allow/Deny, Reply, withdrawing a pending Reply, terminal-in-front detection, plain notifications in the desktop app.
@@ -141,6 +141,7 @@ The README shows the two commands first, then the manual equivalents of steps 2â
 - `plugin.json` has an explicit `version`. Users only receive an update when it changes, so intermediate commits never ship binaries that don't match the source.
 - Binaries and the `.app` are rebuilt and committed only together with a version bump (`make dist`).
 - Semver. This change is `0.2.0`: the install method breaks, which a pre-1.0 minor bump allows.
+- The plugin is named `notifier`, not `claude-notify`: Claude Code reserves the `claude-` prefix for its own plugins and `claude plugin validate` rejects it. The command and binaries keep the name `claude-notify`.
 - `CHANGELOG.md` in Keep a Changelog format, starting with `0.2.0`.
 - Commit messages follow the existing repo style: one imperative sentence, no `feat:` prefix, Claude co-author trailer.
 - Work happens on `feat/go-rewrite` in small commits and is merged into `dev` through a pull request. Tagging `v0.2.0` and merging to `master` are the owner's decisions.
