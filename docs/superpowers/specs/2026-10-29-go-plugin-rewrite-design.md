@@ -187,7 +187,7 @@ Installed with `claude plugin marketplace add franciuto/awesome-claude-notifier#
 | S2 | Pass. With the old app moved away, the first hook run copied the bundled app to `~/Applications` (version 0.2.0, signature valid), and notifications showed with the right icon. In a live session started with `--permission-mode default`, Allow and Deny from the notification both reached Claude. |
 | S3 | Fail, fallback applied. `UNNotificationSound(named:)` does not find sounds inside `Contents/Resources`; macOS played its default sound. The ensure step now installs the bundled `.aiff` files into `~/Library/Sounds` (all of them after an app update, missing ones otherwise). After that the owner heard the custom sound. |
 | S4 | Pass. A Reply typed into the Done notification woke the session through the plugin `Stop` hook (`asyncRewake`, exit 2 through the `sh` dispatcher's `exec`). |
-| S1 | Pending: Windows x64 and ARM64, run by the owner. |
+| S1 | ARM64: pass, reported by the owner on 2026-10-29. Plain toast, Allow, Deny, timeout and Reply worked by hand and in a live session; a pending Reply went away when the session was closed. The PowerShell-only case was not tried, so Git for Windows stays a stated prerequisite. x64: not run yet. |
 
 ## After the port (separate changes, not in this design)
 
