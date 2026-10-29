@@ -40,7 +40,7 @@ Both only work on macOS and Windows, in terminal sessions. The Claude desktop ap
 
 ## Install
 
-**Upgrading from the pip version?** Remove the old setup first, or every notification arrives twice. Delete the `claude-notify hook` entries from the `hooks` in `~/.claude/settings.json`, then run `pip uninstall claude-notify`. You can also delete the sounds in `%LOCALAPPDATA%\claude-notify\sounds` on Windows. The `send` and `check` commands of the old package are gone.
+**Upgrading from the pip version?** Remove the old setup first, or every notification arrives twice. Delete the hooks in `~/.claude/settings.json` whose command runs `claude-notify` or `claude-notify.exe` (on Windows often a full path such as `...\Scripts\claude-notify.exe`) with the `hook` argument, then run `pip uninstall claude-notify`. You can also delete the sounds in `%LOCALAPPDATA%\claude-notify\sounds` on Windows. The `send` and `check` commands of the old package are gone.
 
 It is a Claude Code plugin. Inside Claude Code, run:
 

@@ -10,7 +10,7 @@ Install the Claude Code plugin `notifier` from the marketplace `awesome-claude-n
 
 2. In my user settings file (`~/.claude/settings.json`, on Windows `%USERPROFILE%\.claude\settings.json`) set `"preferredNotifChannel": "notifications_disabled"`, so Claude Code's own notifications don't repeat ours. Keep every other setting as it is. If the file doesn't exist, create it.
 
-3. Look in the same file for old hooks whose command contains `claude-notify hook`. They come from the earlier pip version and would send every notification twice. Show them to me and remove them once I agree. If `pip show claude-notify` finds the old package, offer to run `pip uninstall claude-notify` too.
+3. Look in the same file for old hooks whose command runs `claude-notify` or `claude-notify.exe` (possibly quoted or with a full path, such as `...\Scripts\claude-notify.exe`) with the `hook` argument. The plugin's own hooks live in the plugin, not in this file, so any such hook here is old. They come from the earlier pip version and would send every notification twice. Show them to me and remove them once I agree. If `pip show claude-notify` finds the old package, offer to run `pip uninstall claude-notify` too.
 
 4. Check what my system needs:
    - macOS: tell me to allow notifications for "Claude Notify" when macOS asks, and to set its style to Alerts in System Settings, Notifications, Claude Notify. Alerts keep the Allow, Deny and Reply buttons on screen.
