@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.3.0] - 2026-10-30
+
+### Added
+
+- Linux: Allow / Deny from the notification, when the notification daemon supports actions.
+
 ## [0.2.1] - 2026-10-30
 
 ### Fixed
