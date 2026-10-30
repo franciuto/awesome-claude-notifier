@@ -40,26 +40,25 @@ jobs:
       - uses: actions/checkout@v4
       - run: swiftc -typecheck macos-helper/main.swift
 
-  # Binaries are rebuilt only for a release, so on feature branches bin/ may be stale.
-  # Check them on pull requests into master and on commits that touch plugin.json.
-  dist:
-    runs-on: macos-latest
+  # The Release workflow bumps the version and builds bin/ and macos/ in one commit.
+  # A pull request that does either itself would split them again.
+  release-files:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2
-      - name: Decide whether this run checks bin/
-        id: decide
+          fetch-depth: 0
+      - env:
+          BASE: ${{ github.event.pull_request.base.sha }}
         run: |
-          if [ "${{ github.base_ref }}" = master ] || git diff --name-only HEAD^ HEAD | grep -qx '.claude-plugin/plugin.json'; then
-            echo "run=true" >> "$GITHUB_OUTPUT"
+          fail=0
+          if git diff --name-only "$BASE" HEAD -- 'bin/*/*' macos | grep .; then
+            echo "::error::Leave bin/ and macos/ out of the pull request; the Release workflow builds them."
+            fail=1
           fi
-      - if: steps.decide.outputs.run == 'true'
-        uses: actions/setup-go@v5
-        with:
-          # go-version-file reads only the `go 1.26` line; the binaries must come from the go.mod toolchain
-          go-version: '1.26.5'
-      - if: steps.decide.outputs.run == 'true'
-        run: make dist-go
-      - if: steps.decide.outputs.run == 'true'
-        run: test -z "$(git status --porcelain bin/)" || { git status --porcelain bin/; exit 1; }
+          if [ "$(git show "$BASE:.claude-plugin/plugin.json" | jq -r .version)" != "$(jq -r .version .claude-plugin/plugin.json)" ]; then
+            echo "::error::Leave version in .claude-plugin/plugin.json as it is; the Release workflow bumps it."
+            fail=1
+          fi
+          exit $fail

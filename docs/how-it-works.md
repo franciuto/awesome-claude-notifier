@@ -8,7 +8,7 @@ The repo is a Claude Code plugin marketplace with one plugin, `notifier`. `/plug
 
 `bin/claude-notify` is a small `sh` script, not the program. It looks at `uname` and `exec`s the right binary: `bin/darwin` (arm64 and amd64 in one file), `bin/linux-amd64`, `bin/linux-arm64`, `bin/windows-amd64/claude-notify.exe` or `bin/windows-arm64/claude-notify.exe`. On Windows Claude Code runs it under Git Bash. With an unknown OS or a missing binary it exits 0, because exit code 2 means Reply.
 
-The binaries and the macOS app are built ahead of time and committed. Users only get an update when `version` in `.claude-plugin/plugin.json` changes, so they are rebuilt only together with a version bump (`make dist`).
+The binaries and the macOS app are built ahead of time and committed. Users only get an update when `version` in `.claude-plugin/plugin.json` changes, so the Release workflow (`.github/workflows/release.yml`) bumps the version, runs `make dist` and commits both in one go.
 
 ## 1. Claude Code calls the hook
 
@@ -81,6 +81,6 @@ claude-notify hook [--event-type EVENT] [--reply-wait SECONDS]
 
 ## Things that bit us
 
-- **macOS caches the icon by bundle id.** After changing the icon, bump `version` in `.claude-plugin/plugin.json` and run `make dist`: `build.sh` uses the plugin version as the app's build number, and the next hook run installs the new app. That is usually enough. If macOS still shows the old icon, change `CFBundleIdentifier` in `macos-helper/Info.plist` and build again. You'll be asked for notification permission once more.
+- **macOS caches the icon by bundle id.** After changing the icon, run the Release workflow: `build.sh` uses the plugin version as the app's build number, and the next hook run installs the new app. That is usually enough. If macOS still shows the old icon, change `CFBundleIdentifier` in `macos-helper/Info.plist` and build again. You'll be asked for notification permission once more.
 - **A denied permission sticks to the bundle id too.** If the very first launch was refused, the app can't ask again. A new bundle id fixes it.
 - **Channels would be nicer.** Claude Code [channels](https://code.claude.com/docs/en/channels) can relay permission prompts without holding back the terminal prompt for 20 seconds. They are still a research preview, and Team or Enterprise organizations have to switch them on first. This project sticks to hooks so it works on any account.
