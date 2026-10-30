@@ -1,13 +1,15 @@
 name: Release
 
-# Bumps the plugin version and rebuilds bin/ and macos/ in one commit on master.
+# Bumps the plugin version, rebuilds bin/ and macos/, commits them to master in one commit
+# and publishes a GitHub Release v<version> with the binaries for every OS.
 # One commit, because users only refetch on a version change: a bump that lands before
 # its binaries would leave anyone who updates in between on old binaries for good.
+# Run it with the current version to publish a release for it without a new commit.
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: New plugin version (e.g. 0.3.0)
+        description: Plugin version (e.g. 0.3.1)
         required: true
 
 permissions:
@@ -18,6 +20,9 @@ concurrency: release
 jobs:
   release:
     runs-on: macos-latest
+    env:
+      VERSION: ${{ inputs.version }}
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -27,21 +32,35 @@ jobs:
           # go-version-file reads only the `go 1.26` line; the binaries must come from the go.mod toolchain
           go-version: '1.26.5'
       - name: Bump version
-        env:
-          VERSION: ${{ inputs.version }}
         run: |
           echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || { echo "not a version: $VERSION"; exit 1; }
-          current="$(jq -r .version .claude-plugin/plugin.json)"
-          [ "$VERSION" != "$current" ] || { echo "already at $current"; exit 1; }
+          if gh release view "v$VERSION" >/dev/null 2>&1; then echo "release v$VERSION exists"; exit 1; fi
           jq --arg v "$VERSION" '.version = $v' .claude-plugin/plugin.json > plugin.json.tmp
           mv plugin.json.tmp .claude-plugin/plugin.json
+      # Builds the Go binary for all five targets (cross-compiled) and the macOS app
       - run: make dist
       - name: Commit and push
-        env:
-          VERSION: ${{ inputs.version }}
         run: |
+          if git diff --quiet .claude-plugin/plugin.json; then
+            echo "version unchanged, nothing to commit"
+            exit 0
+          fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add .claude-plugin/plugin.json bin macos
           git commit -m "Release $VERSION"
           git push origin HEAD:master
+      - name: Publish GitHub Release
+        run: |
+          mkdir dist
+          cp bin/darwin/claude-notify dist/claude-notify-darwin-universal
+          cp bin/linux-amd64/claude-notify dist/claude-notify-linux-amd64
+          cp bin/linux-arm64/claude-notify dist/claude-notify-linux-arm64
+          cp bin/windows-amd64/claude-notify.exe dist/claude-notify-windows-amd64.exe
+          cp bin/windows-arm64/claude-notify.exe dist/claude-notify-windows-arm64.exe
+          ditto -c -k --keepParent "macos/Claude Notify.app" dist/Claude-Notify-macos.zip
+          (cd dist && shasum -a 256 * > SHA256SUMS)
+          # The CHANGELOG section for this version, without its heading
+          awk -v v="$VERSION" '/^## \[/{p = index($0, "[" v "]") > 0; next} p' CHANGELOG.md > notes.md
+          [ -s notes.md ] || echo "Release $VERSION" > notes.md
+          gh release create "v$VERSION" dist/* --target "$(git rev-parse HEAD)" --title "v$VERSION" --notes-file notes.md
