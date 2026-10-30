@@ -37,7 +37,7 @@ echo '{"hook_event_name":"Stop","session_id":"t","cwd":"/tmp/demo","last_assista
 
 For logic changes, test `Handler` with a fake `notify.Notifier` (`Send`, `Ask`) instead of posting real notifications.
 
-Release: merge the pull requests (source and `CHANGELOG.md` only), then run the Release workflow with the new version (`gh workflow run release.yml -f version=X.Y.Z`). It bumps `version` in `.claude-plugin/plugin.json`, runs `make dist` and pushes one commit with the bump, `bin/` and `macos/` to `master`. CI fails a pull request that touches `bin/`, `macos/` or the version. Use `make dist` locally only to test.
+Release: merge the pull requests (source and `CHANGELOG.md` only), then run the Release workflow with the new version (`gh workflow run release.yml -f version=X.Y.Z`). It bumps `version` in `.claude-plugin/plugin.json`, runs `make dist` and pushes one commit with the bump, `bin/` and `macos/` to `master`, then publishes a GitHub Release `vX.Y.Z` with the binaries for every OS and the app. CI fails a pull request that touches `bin/`, `macos/` or the version. Use `make dist` locally only to test.
 
 ## Contracts that must hold
 
