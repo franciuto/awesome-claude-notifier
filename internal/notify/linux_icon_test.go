@@ -11,8 +11,8 @@ func TestIconPath(t *testing.T) {
 	}
 }
 
-func TestAskReplyIsUnavailable(t *testing.T) {
-	if got := New().Ask(Request{}, "reply", 0); got != nil {
+func TestAskUnknownKindIsUnavailable(t *testing.T) {
+	if got := New().Ask(Request{}, "other", 0); got != nil {
 		t.Fatalf("got %v", got)
 	}
 }
