@@ -1,6 +1,6 @@
 {
   "name": "notifier",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "macOS, Windows and Linux notifications for Claude Code, with Allow/Deny and Reply from the notification.",
   "author": {
     "name": "Francesco Fontanesi"
