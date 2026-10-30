@@ -21,7 +21,7 @@ Desktop notifications for Claude Code: **which session**, **what happened**, and
 |---|:---:|:---:|:---:|
 | Notification with session and summary | ✅ | ✅ | ✅ |
 | A sound per group | ✅ | ✅ | — |
-| **Allow** / **Deny** from the notification | ✅ | ✅ | — |
+| **Allow** / **Deny** from the notification | ✅ | ✅ | ✅ |
 | **Reply** from the notification | ✅ | ✅ | — |
 
 ## What a notification looks like
@@ -56,7 +56,7 @@ Title: session name and what happened. Body: the start of Claude's answer, in th
 - **Reply** when Claude finishes: what you type goes straight to that session.
 
 > [!NOTE]
-> macOS and Windows terminal sessions only. The Claude desktop app and Linux get plain notifications.
+> Reply: macOS and Windows terminal sessions only. Allow / Deny: also Linux. The Claude desktop app gets plain notifications.
 
 ## Install
 
@@ -91,7 +91,7 @@ Windows 10 or 11, x64 or ARM64, plus [Git for Windows](https://git-scm.com/downl
 
 ### Linux
 
-`notify-send` (`libnotify-bin` on Debian/Ubuntu, `libnotify` on Fedora/Arch). Plain notifications only: no buttons, no sounds.
+`notify-send` (`libnotify-bin` on Debian/Ubuntu, `libnotify` on Fedora/Arch). Allow / Deny buttons need a notification daemon that supports actions (checked with `busctl` or `gdbus`, whichever is installed); without them, and for Reply, you get plain notifications. No sounds.
 
 ## Update and uninstall
 

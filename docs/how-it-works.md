@@ -69,7 +69,7 @@ The same hook flow, with a PowerShell script in place of the app: `windows/toast
 
 ## On Linux
 
-Plain notifications through `notify-send`. There are no buttons, no Reply and no sounds: the hook sees that interactive notifications are unavailable, so a permission prompt stays in the terminal and a finished task gets a plain notification.
+Notifications go through `notify-send`. There are no sounds and no Reply (`notify-send` has no text field): a finished task gets a plain notification. **Allow / Deny** use `notify-send -A allow=Allow -A deny=Deny`, which prints the action clicked. They are shown only if the daemon lists `actions` in `GetCapabilities` (read with `busctl` or `gdbus`); otherwise `notify-send` would wait for a click that cannot come. No click in 20 seconds, a dismissed notification or a daemon without actions leaves the permission prompt in the terminal. Unlike macOS and Windows, there is no check for the terminal being in front, so the notification also appears while you are looking at the terminal.
 
 ## The hook command
 
