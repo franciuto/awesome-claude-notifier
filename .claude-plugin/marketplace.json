@@ -1,0 +1,14 @@
+{
+  "name": "awesome-claude-notifier",
+  "description": "Notifications for Claude Code on macOS, Windows and Linux.",
+  "owner": {
+    "name": "Francesco Fontanesi"
+  },
+  "plugins": [
+    {
+      "name": "notifier",
+      "source": "./",
+      "description": "macOS, Windows and Linux notifications for Claude Code, with Allow/Deny and Reply from the notification."
+    }
+  ]
+}

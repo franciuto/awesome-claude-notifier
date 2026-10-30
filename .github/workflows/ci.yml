@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      # Windows runners would check out CRLF and fail the gofmt check
+      - run: git config --global core.autocrlf false
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: gofmt
+        run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+      - run: go vet ./...
+      - run: go test ./...
+
+  dispatcher:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: sh scripts/test-dispatcher.sh
+
+  swift:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: swiftc -typecheck macos-helper/main.swift
+
+  # Binaries are rebuilt only for a release, so on feature branches bin/ may be stale.
+  # Check them on pull requests into master and on commits that touch plugin.json.
+  dist:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Decide whether this run checks bin/
+        id: decide
+        run: |
+          if [ "${{ github.base_ref }}" = master ] || git diff --name-only HEAD^ HEAD | grep -qx '.claude-plugin/plugin.json'; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.decide.outputs.run == 'true'
+        uses: actions/setup-go@v5
+        with:
+          # go-version-file reads only the `go 1.26` line; the binaries must come from the go.mod toolchain
+          go-version: '1.26.5'
+      - if: steps.decide.outputs.run == 'true'
+        run: make dist-go
+      - if: steps.decide.outputs.run == 'true'
+        run: test -z "$(git status --porcelain bin/)" || { git status --porcelain bin/; exit 1; }

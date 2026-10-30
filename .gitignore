@@ -1,0 +1,24 @@
+# Go build output (go build ./cmd/claude-notify)
+/claude-notify
+
+# Secrets and local config (sounds/generate.sh reads an ElevenLabs key)
+.env
+.venv/
+venv/
+env/
+config.yaml
+*.log
+
+# Claude Code personal settings
+.claude/settings.local.json
+
+# Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db

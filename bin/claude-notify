@@ -1,0 +1,20 @@
+#!/bin/sh
+# Picks the claude-notify binary for this platform. Never exits 2 (that means Reply to Claude Code).
+root="$(cd "$(dirname "$0")" && pwd)"
+case "$(uname -s)" in
+  Darwin) bin="$root/darwin/claude-notify" ;;
+  Linux)
+    case "$(uname -m)" in
+      aarch64|arm64) bin="$root/linux-arm64/claude-notify" ;;
+      *) bin="$root/linux-amd64/claude-notify" ;;
+    esac ;;
+  MINGW*|MSYS*|CYGWIN*)
+    if [ "${PROCESSOR_ARCHITECTURE:-}" = ARM64 ] || [ "${PROCESSOR_ARCHITEW6432:-}" = ARM64 ]; then
+      bin="$root/windows-arm64/claude-notify.exe"
+    else
+      bin="$root/windows-amd64/claude-notify.exe"
+    fi ;;
+  *) exit 0 ;;
+esac
+[ -x "$bin" ] || exit 0
+exec "$bin" "$@"

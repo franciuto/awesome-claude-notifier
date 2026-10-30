@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Notification Sounds</title>
+<style>
+:root { --bg:#faf8f2; --card:#fff; --ink:#1d1b16; --muted:#6b665a; --accent:#e3b93c; --line:#e8e3d6; }
+@media (prefers-color-scheme: dark) { :root { --bg:#16150f; --card:#211f17; --ink:#f3efe3; --muted:#a39c8a; --accent:#e9c450; --line:#332f24; } }
+* { box-sizing:border-box; }
+body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.4 -apple-system, system-ui, sans-serif; padding:32px 16px; }
+main { max-width:640px; margin:0 auto; }
+h1 { font-size:22px; margin:0 0 4px; }
+p.sub { color:var(--muted); margin:0 0 20px; }
+.grid { display:grid; gap:10px; }
+.card { display:grid; grid-template-columns:40px 1fr; grid-template-rows:auto auto; column-gap:12px; text-align:left;
+  background:var(--card); color:var(--ink); border:1px solid var(--line); border-radius:12px; padding:14px 16px; cursor:pointer; font:inherit; }
+.card:hover { border-color:var(--accent); }
+.card.playing { border-color:var(--accent); box-shadow:0 0 0 2px var(--accent) inset; }
+.play { grid-row:span 2; width:40px; height:40px; border-radius:50%; background:var(--accent); color:#1d1b16; display:grid; place-items:center; font-size:14px; }
+.name { font-weight:600; }
+.desc { color:var(--muted); font-size:14px; }
+.file { grid-column:2; color:var(--muted); font:12px ui-monospace, monospace; margin-top:2px; }
+.all { margin-bottom:14px; background:var(--ink); color:var(--bg); border:0; border-radius:10px; padding:10px 16px; font:inherit; font-weight:600; cursor:pointer; }
+kbd { font:12px ui-monospace, monospace; border:1px solid var(--line); border-radius:4px; padding:0 4px; }
+</style>
+</head>
+<body>
+<main>
+<h1>Notification sounds</h1>
+<p class="sub">Click a card to play it, or press <kbd>1</kbd>–<kbd>6</kbd>.</p>
+<button class="all" id="all">▶ Play all</button>
+<div class="grid">
+  <button class="card" data-src="mp3/needs-you.mp3"><span class="play">▶</span><span class="name">Needs you</span><span class="desc">Permission, question or input requested</span><span class="file">claude-notify-needs-you.aiff</span></button>
+  <button class="card" data-src="mp3/done.mp3"><span class="play">▶</span><span class="name">Done</span><span class="desc">Claude finished responding</span><span class="file">claude-notify-done.aiff</span></button>
+  <button class="card" data-src="mp3/paused.mp3"><span class="play">▶</span><span class="name">Paused</span><span class="desc">Finished, background work still running</span><span class="file">claude-notify-paused.aiff</span></button>
+  <button class="card" data-src="mp3/error.mp3"><span class="play">▶</span><span class="name">Error</span><span class="desc">API error or blocked action</span><span class="file">claude-notify-error.aiff</span></button>
+  <button class="card" data-src="mp3/limit.mp3"><span class="play">▶</span><span class="name">Limit</span><span class="desc">Usage limit reset or waiting on it</span><span class="file">claude-notify-limit.aiff</span></button>
+  <button class="card" data-src="mp3/info.mp3"><span class="play">▶</span><span class="name">Info</span><span class="desc">Sign-in and minor notices</span><span class="file">claude-notify-info.aiff</span></button>
+</div>
+</main>
+<script>
+const cards = [...document.querySelectorAll('.card')];
+const audio = new Audio();
+function play(card) {
+  return new Promise(res => {
+    cards.forEach(c => c.classList.remove('playing'));
+    card.classList.add('playing');
+    audio.src = card.dataset.src; audio.currentTime = 0;
+    audio.onended = () => { card.classList.remove('playing'); res(); };
+    audio.play().catch(res);
+  });
+}
+cards.forEach(c => c.addEventListener('click', () => play(c)));
+document.getElementById('all').onclick = async () => {
+  for (const c of cards) { await play(c); await new Promise(r => setTimeout(r, 600)); }
+};
+addEventListener('keydown', e => { const i = Number(e.key) - 1; if (cards[i]) play(cards[i]); });
+</script>
+</body>
+</html>
