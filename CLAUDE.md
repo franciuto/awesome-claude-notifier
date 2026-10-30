@@ -37,7 +37,7 @@ echo '{"hook_event_name":"Stop","session_id":"t","cwd":"/tmp/demo","last_assista
 
 For logic changes, test `Handler` with a fake `notify.Notifier` (`Send`, `Ask`) instead of posting real notifications.
 
-Release: bump `version` in `.claude-plugin/plugin.json`, run `make dist`, commit `bin/` and `macos/` with the bump, update `CHANGELOG.md`, open a PR into `master`.
+Release: merge the pull requests (source and `CHANGELOG.md` only), then run the Release workflow with the new version (`gh workflow run release.yml -f version=X.Y.Z`). It bumps `version` in `.claude-plugin/plugin.json`, runs `make dist` and pushes one commit with the bump, `bin/` and `macos/` to `master`. CI fails a pull request that touches `bin/`, `macos/` or the version. Use `make dist` locally only to test.
 
 ## Contracts that must hold
 
@@ -54,15 +54,15 @@ Release: bump `version` in `.claude-plugin/plugin.json`, run `make dist`, commit
 | Mistake | Result | Do instead |
 |---|---|---|
 | Running the helper binary directly for an interactive notification | Click or reply never arrives, notification hangs | `open -n -g -W -a "Claude Notify.app" --args ...` (see `darwin.Ask`) |
-| Changing the icon and only rebuilding | macOS keeps the old cached icon | `build.sh` sets the app version to the plugin version, so bump `version` in `plugin.json` and run `make dist`; if that isn't enough, change `CFBundleIdentifier` |
+| Changing the icon and only rebuilding | macOS keeps the old cached icon | `build.sh` sets the app version to the plugin version, so run the Release workflow; if that isn't enough, change `CFBundleIdentifier` |
 | Killing a pid from a stale pid file | Can signal an unrelated process | Check the command line contains `claude-notify` first (see `CancelReplyWait`) |
 | Interpolating text into AppleScript | Quotes break out of the string | Escape `\` and `"` (see `darwin.Send`) |
-| Adding a group without a sound | Default system sound plays | Add it to `groupSlugs` in `internal/hook/describe.go`, `sounds/mp3/`, `generate.sh` and `player.html`, then `make dist` |
+| Adding a group without a sound | Default system sound plays | Add it to `groupSlugs` in `internal/hook/describe.go`, `sounds/mp3/`, `generate.sh` and `player.html`; the Release workflow builds them into the app |
 | Adding a language to `languages` only | Never detected, texts stay in the fallback language | Also add its common words to `stopwords` in `i18n.go` |
 | Translating the buttons or group names | Not wanted: Allow/Deny/Reply/Send and Done/Needs you/... stay English | Only body sentences go in `languages` |
 | Hard-coding a user-facing sentence in `describe.go` or `handler.go` | Wrong language in half the sessions | Put it in `languages` in `i18n.go` for every language |
 | `Register-ObjectEvent` on a toast in `toast.ps1` | "Windows PowerShell cannot subscribe to Windows RT events" | Handle the event in `ToastWaiter.cs` |
 | Killing the Windows waiter with a plain kill | Exit code 15 instead of 0 | Use `stopWaiter` in `internal/hook/waiter_windows.go` |
 | A Go panic or a `flag` default (it exits 2 on a bad flag) | Claude Code reads exit 2 as a Reply | Keep the recovery in `run` and `flag.ContinueOnError`; exit 1 |
-| Committing binaries without a version bump | Users never get them, or get binaries that don't match the source | Rebuild `bin/` and `macos/` only with a `version` bump |
+| Committing binaries or bumping the version in a pull request | Bump and binaries land apart; users who update in between keep old binaries | Leave both to the Release workflow |
 | Editing `bin/claude-notify` on Windows with CRLF | `sh` fails on the shebang under Git Bash | `.gitattributes` forces LF; keep it |

@@ -1,6 +1,6 @@
 #!/bin/bash
 # Regenerate notification sounds with ElevenLabs (needs an authenticated `elevenlabs` CLI)
-# into sounds/mp3/<group>.mp3. Then run `make dist` and bump the plugin version.
+# into sounds/mp3/<group>.mp3. Then run the Release workflow, which builds them into the app.
 # Usage: generate.sh [group ...]   (default: all groups)
 set -euo pipefail
 

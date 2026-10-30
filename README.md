@@ -131,4 +131,4 @@ echo '{"hook_event_name":"Stop","session_id":"t","cwd":"/tmp/demo","last_assista
 - **Icon:** `python3 assets/icon/make_app_icon.py your-image.png assets/icon/app-icon.png`; on Windows replace `windows/icon.png`.
 - **Languages:** add a block of texts and common words in `internal/hook/i18n.go`.
 
-After any change: `make dist` and bump `version` in `.claude-plugin/plugin.json`. How it works: [docs/how-it-works.md](docs/how-it-works.md).
+After any change, run the Release workflow (Actions → Release) with a new version: it builds the binaries and the app and commits them with the bump. `make dist` builds them locally for testing. How it works: [docs/how-it-works.md](docs/how-it-works.md).

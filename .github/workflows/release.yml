@@ -1,0 +1,47 @@
+name: Release
+
+# Bumps the plugin version and rebuilds bin/ and macos/ in one commit on master.
+# One commit, because users only refetch on a version change: a bump that lands before
+# its binaries would leave anyone who updates in between on old binaries for good.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: New plugin version (e.g. 0.3.0)
+        required: true
+
+permissions:
+  contents: write
+
+concurrency: release
+
+jobs:
+  release:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+      - uses: actions/setup-go@v5
+        with:
+          # go-version-file reads only the `go 1.26` line; the binaries must come from the go.mod toolchain
+          go-version: '1.26.5'
+      - name: Bump version
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || { echo "not a version: $VERSION"; exit 1; }
+          current="$(jq -r .version .claude-plugin/plugin.json)"
+          [ "$VERSION" != "$current" ] || { echo "already at $current"; exit 1; }
+          jq --arg v "$VERSION" '.version = $v' .claude-plugin/plugin.json > plugin.json.tmp
+          mv plugin.json.tmp .claude-plugin/plugin.json
+      - run: make dist
+      - name: Commit and push
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .claude-plugin/plugin.json bin macos
+          git commit -m "Release $VERSION"
+          git push origin HEAD:master
